@@ -30,12 +30,10 @@ startBestSellerCron();
 
 // Middleware
 app.use(express.json());
-const allowedOrigins = process.env.SOCKET_CORS_ORIGIN
-  ? process.env.SOCKET_CORS_ORIGIN.split(",")
-  : ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
-
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function(origin, callback) {
+    callback(null, true);
+  },
   credentials: true
 }));
 app.use(morgan("dev"));
