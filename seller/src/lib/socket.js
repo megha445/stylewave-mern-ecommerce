@@ -9,7 +9,7 @@ export const connectSocket = () => {
   if (socket) return socket;
 
   socket = io(getBackendUrl(), {
-    transports: ["websocket"],
+    transports: ["polling", "websocket"],
     auth: {
       token: localStorage.getItem("sellerToken"),
     },

@@ -22,7 +22,7 @@ export const connectSocket = () => {
   }
 
   socket = io(getBackendUrl(), {
-    transports: ["websocket"],
+    transports: ["polling", "websocket"],
     auth: {
       token,
     },
