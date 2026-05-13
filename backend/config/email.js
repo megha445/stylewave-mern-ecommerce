@@ -1,20 +1,26 @@
-import * as Brevo from "@getbrevo/brevo";
-
-const apiInstance = new Brevo.TransactionalEmailsApi();
-apiInstance.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY
-);
-
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const FROM_EMAIL = { email: "onboarding@yourdomain.com", name: "Stylewave" };
 
 const sendEmail = async (to, subject, htmlContent) => {
-  const sendSmtpEmail = new Brevo.SendSmtpEmail();
-  sendSmtpEmail.sender = FROM_EMAIL;
-  sendSmtpEmail.to = [{ email: to }];
-  sendSmtpEmail.subject = subject;
-  sendSmtpEmail.htmlContent = htmlContent;
-  return apiInstance.sendTransacEmail(sendSmtpEmail);
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": BREVO_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: FROM_EMAIL,
+      to: [{ email: to }],
+      subject,
+      htmlContent,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(JSON.stringify(err));
+  }
+  return res.json();
 };
 
 // 1. Send seller credentials email
@@ -23,8 +29,7 @@ export const sendSellerCredentials = async (sellerEmail, sellerName, password) =
     await sendEmail(
       sellerEmail,
       "Welcome to Style wave - Your Seller Account Credentials",
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #4a5568; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>Welcome to Style wave!</h1>
           </div>
@@ -45,8 +50,7 @@ export const sendSellerCredentials = async (sellerEmail, sellerName, password) =
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ Email sent to ${sellerEmail}`);
     return { success: true };
@@ -62,8 +66,7 @@ export const sendForgotPasswordEmail = async (sellerEmail, sellerName, tempPassw
     await sendEmail(
       sellerEmail,
       "Your Temporary Password - Style wave Seller",
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #4a5568; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>Password Recovery</h1>
           </div>
@@ -81,8 +84,7 @@ export const sendForgotPasswordEmail = async (sellerEmail, sellerName, tempPassw
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ Temporary password sent to ${sellerEmail}`);
     return { success: true };
@@ -98,8 +100,7 @@ export const sendUserForgotPasswordEmail = async (userEmail, userName, tempPassw
     await sendEmail(
       userEmail,
       "Your Temporary Password - Style wave",
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #2d3748; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>Password Recovery</h1>
           </div>
@@ -117,8 +118,7 @@ export const sendUserForgotPasswordEmail = async (userEmail, userName, tempPassw
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ Temporary password sent to ${userEmail}`);
     return { success: true };
@@ -134,8 +134,7 @@ export const sendNewProductNotificationToAdmin = async (adminEmail, sellerName, 
     await sendEmail(
       adminEmail,
       `New Product Pending Approval - ${productName}`,
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #4a5568; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>New Product Pending Approval</h1>
           </div>
@@ -151,8 +150,7 @@ export const sendNewProductNotificationToAdmin = async (adminEmail, sellerName, 
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave System</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ New product notification sent to admin`);
   } catch (error) {
@@ -166,8 +164,7 @@ export const sendProductApprovedEmail = async (sellerEmail, sellerName, productN
     await sendEmail(
       sellerEmail,
       `✅ Your Product "${productName}" Has Been Approved!`,
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #38a169; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>🎉 Product Approved!</h1>
           </div>
@@ -183,8 +180,7 @@ export const sendProductApprovedEmail = async (sellerEmail, sellerName, productN
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ Approval email sent to ${sellerEmail}`);
   } catch (error) {
@@ -198,8 +194,7 @@ export const sendProductRejectedEmail = async (sellerEmail, sellerName, productN
     await sendEmail(
       sellerEmail,
       `❌ Your Product "${productName}" Was Not Approved`,
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #e53e3e; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>Product Not Approved</h1>
           </div>
@@ -216,8 +211,7 @@ export const sendProductRejectedEmail = async (sellerEmail, sellerName, productN
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ Rejection email sent to ${sellerEmail}`);
   } catch (error) {
@@ -231,8 +225,7 @@ export const sendLowStockEmail = async (sellerEmail, sellerName, productName, st
     await sendEmail(
       sellerEmail,
       `⚠️ Low Stock Alert - ${productName}`,
-      `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #dd6b20; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
             <h1>⚠️ Low Stock Alert</h1>
           </div>
@@ -248,8 +241,7 @@ export const sendLowStockEmail = async (sellerEmail, sellerName, productName, st
             </a>
             <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
           </div>
-        </div>
-      `
+        </div>`
     );
     console.log(`✅ Low stock alert sent to ${sellerEmail}`);
   } catch (error) {
