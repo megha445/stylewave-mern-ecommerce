@@ -1,28 +1,24 @@
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const FROM_EMAIL = { email: "onboarding@yourdomain.com", name: "Stylewave" };
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: "smtp-relay.brevo.com",
+  port: 587,
+  auth: {
+    user: process.env.BREVO_USER,
+    pass: process.env.BREVO_SMTP_KEY,
+  },
+});
+
+const FROM_EMAIL = '"Stylewave" <your-verified-email@yourdomain.com>';
 
 const sendEmail = async (to, subject, htmlContent) => {
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "api-key": BREVO_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sender: FROM_EMAIL,
-      to: [{ email: to }],
-      subject,
-      htmlContent,
-    }),
+  await transporter.sendMail({
+    from: FROM_EMAIL,
+    to,
+    subject,
+    html: htmlContent,
   });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(JSON.stringify(err));
-  }
-  return res.json();
 };
-
 // 1. Send seller credentials email
 export const sendSellerCredentials = async (sellerEmail, sellerName, password) => {
   try {
