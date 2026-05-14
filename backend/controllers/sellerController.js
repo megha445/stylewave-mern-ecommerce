@@ -6,6 +6,11 @@ import productModel from "../models/productModel.js";
 import { sendSellerCredentials, sendForgotPasswordEmail, sendNewProductNotificationToAdmin } from "../config/email.js";
 import { emitToAdmins, emitToSeller } from "../socket.js";
 
+const getAdminContact = (admin) => ({
+  name: admin?.name || "Stylewave Admin",
+  email: admin?.email,
+});
+
 const emitSellerProductChanged = (product, action) => {
   if (!product) return;
   const payload = {
@@ -58,7 +63,7 @@ const addSeller = async (req, res) => {
 
     // ✅ SEND EMAIL WITH CREDENTIALS
     try {
-      await sendSellerCredentials(email, name, password);
+      await sendSellerCredentials(email, name, password, getAdminContact(req.admin));
       console.log(`📧 Credentials email sent to ${email}`);
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
@@ -179,7 +184,12 @@ const resetSellerPassword = async (req, res) => {
 
     // Send email with new password
     try {
-      await sendSellerCredentials(seller.email, seller.name, newPassword);
+      await sendSellerCredentials(
+        seller.email,
+        seller.name,
+        newPassword,
+        getAdminContact(req.admin)
+      );
       console.log(`📧 Password reset email sent to ${seller.email}`);
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
@@ -296,7 +306,12 @@ const forgotPassword = async (req, res) => {
 
     // Send email with new temporary password
     try {
-      await sendForgotPasswordEmail(seller.email, seller.name, tempPassword);
+      await sendForgotPasswordEmail(
+        seller.email,
+        seller.name,
+        tempPassword,
+        { name: "Your Stylewave Admin", email: seller.createdByAdminEmail }
+      );
       
       res.json({
         success: true,
@@ -375,10 +390,11 @@ const addProduct = async (req, res) => {
 
     if (seller.createdByAdminEmail) {
       await sendNewProductNotificationToAdmin(
-      seller.createdByAdminEmail, // ✅ email goes to correct admin only
-      req.seller.name,
-      req.body.name
-     );
+        seller.createdByAdminEmail,
+        req.seller.name,
+        req.body.name,
+        { email: req.seller.email }
+      );
     }
 
     console.log("✅ Product created:", {
@@ -509,6 +525,16 @@ const updateSellerProduct = async (req, res) => {
       { new: true }
     );
     emitSellerProductChanged(updatedProduct, "updated-pending");
+
+    const seller = await sellerModel.findById(req.seller._id);
+    if (seller?.createdByAdminEmail) {
+      await sendNewProductNotificationToAdmin(
+        seller.createdByAdminEmail,
+        req.seller.name,
+        updatedProduct.name,
+        { email: req.seller.email }
+      );
+    }
 
     res.json({
       success: true,

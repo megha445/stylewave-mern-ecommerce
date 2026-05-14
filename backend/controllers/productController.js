@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import productModel from "../models/productModel.js";
+import sellerModel from "../models/sellerModel.js";
 import redisClient from "../config/redis.js";
 import {
   sendNewProductNotificationToAdmin,
@@ -32,6 +33,39 @@ const clearProductCache = async () => {
   await redisClient.del("products");
   await redisClient.del("approved_products");
   await redisClient.del("approved_products_p1"); // ✅ pagination cache
+};
+
+const getAdminContact = (admin) => ({
+  name: admin?.name || "Stylewave Admin",
+  email: admin?.email,
+});
+
+const getSellerIdsForAdmin = async (admin) => {
+  const sellers = await sellerModel
+    .find({
+      $or: [
+        { createdByAdminId: admin._id },
+        { createdByAdminEmail: admin.email },
+      ],
+    })
+    .select("_id");
+
+  return sellers.map((seller) => seller._id);
+};
+
+const canAdminManageSellerProduct = async (admin, product) => {
+  if (!product?.sellerId) return true;
+
+  const seller = await sellerModel.findById(product.sellerId).select(
+    "createdByAdminId createdByAdminEmail"
+  );
+
+  if (!seller) return false;
+
+  return (
+    String(seller.createdByAdminId || "") === String(admin._id) ||
+    seller.createdByAdminEmail === admin.email
+  );
 };
 
 // ============= ADD PRODUCT =============
@@ -88,12 +122,13 @@ const addProduct = async (req, res) => {
 
     // ✅ Send email to admin when seller adds product
     if (req.seller) {
-      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminEmail = req.seller.createdByAdminEmail || process.env.ADMIN_EMAIL;
       if (adminEmail) {
         await sendNewProductNotificationToAdmin(
           adminEmail,
           req.seller.name,
-          name
+          name,
+          { email: req.seller.email }
         );
       }
     }
@@ -196,9 +231,10 @@ const listProducts = async (req, res) => {
 const getPendingProducts = async (req, res) => {
   try {
     // ✅ Show PENDING and APPROVED — NOT rejected
+    const sellerIds = await getSellerIdsForAdmin(req.admin);
     const products = await productModel
-  .find({ status: "Pending", ownedBy: "seller" })
-  .sort({ createdAt: -1 });
+      .find({ status: "Pending", sellerId: { $in: sellerIds } })
+      .sort({ createdAt: -1 });
 
     res.json({ success: true, products });
   } catch (error) {
@@ -211,22 +247,30 @@ const approveProduct = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    const product = await productModel.findByIdAndUpdate(
-      productId,
-      { status: "Approved", rejectionReason: null },
-      { new: true }
-    );
+    const product = await productModel.findById(productId);
 
     if (!product) {
       return res.json({ success: false, message: "Product not found" });
     }
+
+    if (!(await canAdminManageSellerProduct(req.admin, product))) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
+    }
+
+    product.status = "Approved";
+    product.rejectionReason = null;
+    await product.save();
 
     // ✅ Send approval email to seller
     if (product.sellerEmail) {
       await sendProductApprovedEmail(
         product.sellerEmail,
         product.sellerName,
-        product.name
+        product.name,
+        getAdminContact(req.admin)
       );
     }
 
@@ -245,15 +289,22 @@ const rejectProduct = async (req, res) => {
     const { productId } = req.params;
     const { reason } = req.body;
 
-    const product = await productModel.findByIdAndUpdate(
-      productId,
-      { status: "Rejected", rejectionReason: reason || "No reason provided" },
-      { new: true }
-    );
+    const product = await productModel.findById(productId);
 
     if (!product) {
       return res.json({ success: false, message: "Product not found" });
     }
+
+    if (!(await canAdminManageSellerProduct(req.admin, product))) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
+    }
+
+    product.status = "Rejected";
+    product.rejectionReason = reason || "No reason provided";
+    await product.save();
 
     // ✅ Send rejection email to seller
     if (product.sellerEmail) {
@@ -261,7 +312,8 @@ const rejectProduct = async (req, res) => {
         product.sellerEmail,
         product.sellerName,
         product.name,
-        reason
+        reason,
+        getAdminContact(req.admin)
       );
     }
 

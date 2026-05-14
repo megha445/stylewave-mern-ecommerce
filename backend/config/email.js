@@ -1,6 +1,12 @@
 import nodemailer from "nodemailer";
 
-const FROM_EMAIL = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+const DEFAULT_FROM_NAME = process.env.EMAIL_FROM_NAME || "Stylewave";
+
+const formatAddress = (name, email) => {
+  if (!email) return undefined;
+  const cleanName = String(name || "").replace(/["<>]/g, "").trim();
+  return cleanName ? `"${cleanName}" <${email}>` : email;
+};
 
 const isEmailConfigured = () =>
   process.env.EMAIL_USER &&
@@ -17,21 +23,25 @@ const createTransporter = () =>
     },
   });
 
-const sendEmail = async (to, subject, htmlContent) => {
+const sendEmail = async (to, subject, htmlContent, options = {}) => {
   if (!isEmailConfigured()) {
     console.warn(`Email skipped for ${to}: EMAIL_USER and EMAIL_PASSWORD are not configured.`);
     return { skipped: true };
   }
 
+  const fromName = options.fromName || DEFAULT_FROM_NAME;
+  const replyTo = options.replyTo || process.env.EMAIL_REPLY_TO;
+
   await createTransporter().sendMail({
-    from: FROM_EMAIL,
+    from: formatAddress(fromName, process.env.EMAIL_USER),
+    replyTo,
     to,
     subject,
     html: htmlContent,
   });
 };
 // 1. Send seller credentials email
-export const sendSellerCredentials = async (sellerEmail, sellerName, password) => {
+export const sendSellerCredentials = async (sellerEmail, sellerName, password, adminContact = {}) => {
   try {
     await sendEmail(
       sellerEmail,
@@ -55,9 +65,15 @@ export const sendSellerCredentials = async (sellerEmail, sellerName, password) =
             <a href="${process.env.SELLER_DASHBOARD_URL}" style="display: inline-block; padding: 12px 30px; background-color: #4299e1; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">
               Login to Dashboard
             </a>
-            <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>${adminContact.name || "Style wave Admin"}</strong></p>
           </div>
-        </div>`
+        </div>`,
+      {
+        fromName: adminContact.name
+          ? `${adminContact.name} via Stylewave`
+          : "Stylewave Admin",
+        replyTo: adminContact.email,
+      }
     );
     console.log(`✅ Email sent to ${sellerEmail}`);
     return { success: true };
@@ -68,7 +84,7 @@ export const sendSellerCredentials = async (sellerEmail, sellerName, password) =
 };
 
 // 2. Seller forgot password
-export const sendForgotPasswordEmail = async (sellerEmail, sellerName, tempPassword) => {
+export const sendForgotPasswordEmail = async (sellerEmail, sellerName, tempPassword, adminContact = {}) => {
   try {
     await sendEmail(
       sellerEmail,
@@ -89,9 +105,15 @@ export const sendForgotPasswordEmail = async (sellerEmail, sellerName, tempPassw
             <a href="${process.env.SELLER_DASHBOARD_URL}" style="display: inline-block; padding: 12px 30px; background-color: #4299e1; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">
               Login to Dashboard
             </a>
-            <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>${adminContact.name || "Style wave Team"}</strong></p>
           </div>
-        </div>`
+        </div>`,
+      {
+        fromName: adminContact.name
+          ? `${adminContact.name} via Stylewave`
+          : "Stylewave Team",
+        replyTo: adminContact.email,
+      }
     );
     console.log(`✅ Temporary password sent to ${sellerEmail}`);
     return { success: true };
@@ -136,7 +158,7 @@ export const sendUserForgotPasswordEmail = async (userEmail, userName, tempPassw
 };
 
 // 4. Admin notification when seller adds product
-export const sendNewProductNotificationToAdmin = async (adminEmail, sellerName, productName) => {
+export const sendNewProductNotificationToAdmin = async (adminEmail, sellerName, productName, sellerContact = {}) => {
   try {
     await sendEmail(
       adminEmail,
@@ -155,9 +177,13 @@ export const sendNewProductNotificationToAdmin = async (adminEmail, sellerName, 
             <a href="${process.env.ADMIN_DASHBOARD_URL || process.env.FRONTEND_URL}" style="display: inline-block; padding: 12px 30px; background-color: #4299e1; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">
               Go to Admin Dashboard
             </a>
-            <p style="margin-top: 30px;">Best regards,<br><strong>Style wave System</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>${sellerName || "Style wave Seller"}</strong></p>
           </div>
-        </div>`
+        </div>`,
+      {
+        fromName: sellerName ? `${sellerName} via Stylewave` : "Stylewave Seller",
+        replyTo: sellerContact.email,
+      }
     );
     console.log(`✅ New product notification sent to admin`);
   } catch (error) {
@@ -166,7 +192,7 @@ export const sendNewProductNotificationToAdmin = async (adminEmail, sellerName, 
 };
 
 // 5. Seller product approved
-export const sendProductApprovedEmail = async (sellerEmail, sellerName, productName) => {
+export const sendProductApprovedEmail = async (sellerEmail, sellerName, productName, adminContact = {}) => {
   try {
     await sendEmail(
       sellerEmail,
@@ -185,9 +211,15 @@ export const sendProductApprovedEmail = async (sellerEmail, sellerName, productN
             <a href="${process.env.SELLER_DASHBOARD_URL}" style="display: inline-block; padding: 12px 30px; background-color: #38a169; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">
               Go to Dashboard
             </a>
-            <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>${adminContact.name || "Style wave Team"}</strong></p>
           </div>
-        </div>`
+        </div>`,
+      {
+        fromName: adminContact.name
+          ? `${adminContact.name} via Stylewave`
+          : "Stylewave Team",
+        replyTo: adminContact.email,
+      }
     );
     console.log(`✅ Approval email sent to ${sellerEmail}`);
   } catch (error) {
@@ -196,7 +228,7 @@ export const sendProductApprovedEmail = async (sellerEmail, sellerName, productN
 };
 
 // 6. Seller product rejected
-export const sendProductRejectedEmail = async (sellerEmail, sellerName, productName, reason) => {
+export const sendProductRejectedEmail = async (sellerEmail, sellerName, productName, reason, adminContact = {}) => {
   try {
     await sendEmail(
       sellerEmail,
@@ -216,9 +248,15 @@ export const sendProductRejectedEmail = async (sellerEmail, sellerName, productN
             <a href="${process.env.SELLER_DASHBOARD_URL}" style="display: inline-block; padding: 12px 30px; background-color: #4299e1; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">
               Edit Product
             </a>
-            <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>${adminContact.name || "Style wave Team"}</strong></p>
           </div>
-        </div>`
+        </div>`,
+      {
+        fromName: adminContact.name
+          ? `${adminContact.name} via Stylewave`
+          : "Stylewave Team",
+        replyTo: adminContact.email,
+      }
     );
     console.log(`✅ Rejection email sent to ${sellerEmail}`);
   } catch (error) {

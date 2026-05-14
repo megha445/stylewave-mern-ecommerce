@@ -43,6 +43,8 @@ const sellerAuth = async (req, res, next) => {
       id: seller._id.toString(), // String version
       email: seller.email,
       name: seller.name, // ✅ Get from database, not JWT
+      createdByAdminId: seller.createdByAdminId,
+      createdByAdminEmail: seller.createdByAdminEmail,
     };
     req.body.sellerId = seller._id; // For queries
     
