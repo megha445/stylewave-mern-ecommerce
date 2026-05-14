@@ -1,5 +1,4 @@
 {
-  "dependencies": {
-    "@getbrevo/brevo": "^5.0.4"
-  }
+  "name": "mern-ecommerce-main",
+  "private": true
 }

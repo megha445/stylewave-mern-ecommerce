@@ -1,18 +1,29 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  auth: {
-    user: process.env.BREVO_USER,
-    pass: process.env.BREVO_SMTP_KEY,
-  },
-});
+const FROM_EMAIL = process.env.EMAIL_FROM || process.env.EMAIL_USER;
 
-const FROM_EMAIL = '"Stylewave" <your-verified-email@yourdomain.com>';
+const isEmailConfigured = () =>
+  process.env.EMAIL_USER &&
+  process.env.EMAIL_PASSWORD &&
+  !process.env.EMAIL_USER.startsWith("your_") &&
+  !process.env.EMAIL_PASSWORD.startsWith("your_");
+
+const createTransporter = () =>
+  nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
 
 const sendEmail = async (to, subject, htmlContent) => {
-  await transporter.sendMail({
+  if (!isEmailConfigured()) {
+    console.warn(`Email skipped for ${to}: EMAIL_USER and EMAIL_PASSWORD are not configured.`);
+    return { skipped: true };
+  }
+
+  await createTransporter().sendMail({
     from: FROM_EMAIL,
     to,
     subject,

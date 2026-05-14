@@ -2,7 +2,7 @@ import redisClient from "../config/redis.js";
 import Order from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import productModel from "../models/productModel.js";
-import razorpayInstance from "../config/razorpay.js";
+import razorpayInstance, { isRazorpayConfigured } from "../config/razorpay.js";
 import Reservation from "../models/reservationModel.js";
 import { emitToAdmins, emitToSeller, emitToUser } from "../socket.js";
 
@@ -187,6 +187,12 @@ export const cancelOrder = async (req, res) => {
       order.razorpay_payment_id;
 
     if (isRazorpayPaid) {
+      if (!isRazorpayConfigured()) {
+        return res.status(503).json({
+          message: "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.",
+        });
+      }
+
       try {
         const refund = await razorpayInstance.payments.refund(
           order.razorpay_payment_id,

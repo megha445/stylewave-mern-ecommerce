@@ -1,4 +1,4 @@
-import razorpayInstance from "../config/razorpay.js";
+import razorpayInstance, { isRazorpayConfigured } from "../config/razorpay.js";
 import crypto from "crypto";
 import Order from "../models/orderModel.js";
 import productModel from "../models/productModel.js";
@@ -15,6 +15,13 @@ export const createRazorpayOrder = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Amount is required",
+      });
+    }
+
+    if (!isRazorpayConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.",
       });
     }
 
@@ -53,6 +60,13 @@ export const verifyRazorpayPayment = async (req, res) => {
       totalPrice,
       address,
     } = req.body;
+
+    if (!isRazorpayConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.",
+      });
+    }
 
     // ✅ Verify signature
     const sign = razorpay_order_id + "|" + razorpay_payment_id;
@@ -130,6 +144,13 @@ export const verifyRazorpayPayment = async (req, res) => {
 // GET RAZORPAY KEY (For Frontend)
 // ===============================
 export const getRazorpayKey = async (req, res) => {
+  if (!isRazorpayConfigured()) {
+    return res.status(503).json({
+      success: false,
+      message: "Razorpay is not configured. Add RAZORPAY_KEY_ID in backend/.env.",
+    });
+  }
+
   res.json({
     success: true,
     key_id: process.env.RAZORPAY_KEY_ID,
