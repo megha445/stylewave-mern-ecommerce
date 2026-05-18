@@ -5,7 +5,7 @@ import { assets } from '../assets/assets';
 import CartTotal from '../components/CartTotal';
 
 const Cart = () => {
-  const { products, currency, cartItems, updateQuantity, navigate, backendUrl, token } = useContext(ShopContext);
+  const { products, currency, cartItems, updateQuantity, navigate, backendUrl, token, getAuthToken } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
 
   // Cart.jsx
@@ -16,6 +16,7 @@ const handleCheckout = async () => {
     return;
   }
   try {
+    const authToken = await getAuthToken();
     // Build cart items array
     const cartItemsArray = cartData.map(item => ({
       productId: item._id,
@@ -27,7 +28,7 @@ const handleCheckout = async () => {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // your auth token
+        'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify({ cartItems: cartItemsArray })
     });

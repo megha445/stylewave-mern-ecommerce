@@ -132,6 +132,10 @@ const loginAdmin = async (req, res) => {
       res.json({
         success: true,
         token,
+        admin: {
+          name: admin.name,
+          email: admin.email,
+        },
         message: "Admin logged in successfully",
       });
     } else {

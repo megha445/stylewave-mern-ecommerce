@@ -20,9 +20,11 @@ const Login = ({ setToken }) => {
 
       if (response.data.success) {
         const token = response.data.token;
+        const adminName = response.data.admin?.name || "Admin";
 
         // ✅ SAVE TOKEN (THIS WAS MISSING)
         localStorage.setItem("adminToken", token);
+        localStorage.setItem("adminName", adminName);
 
         // ✅ SET TOKEN IN STATE
         setToken(token);

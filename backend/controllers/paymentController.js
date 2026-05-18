@@ -9,7 +9,7 @@ import Reservation from "../models/reservationModel.js";
 // ===============================
 export const createRazorpayOrder = async (req, res) => {
   try {
-    const { amount, currency = "INR", receipt } = req.body;
+    const { amount, currency = "INR", receipt, orderItems = [] } = req.body;
 
     if (!amount) {
       return res.status(400).json({
@@ -23,6 +23,31 @@ export const createRazorpayOrder = async (req, res) => {
         success: false,
         message: "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.",
       });
+    }
+
+    for (const item of orderItems) {
+      const product = await productModel.findById(item.productId);
+
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+      }
+
+      const reservation = await Reservation.findOne({
+        userId: req.user._id,
+        productId: item.productId,
+        status: "active",
+        expiresAt: { $gt: new Date() },
+      });
+
+      if (!reservation) {
+        return res.status(400).json({
+          success: false,
+          message: `Reservation expired for "${product.name}". Please go back to cart and try again.`,
+        });
+      }
     }
 
     const options = {
@@ -95,11 +120,24 @@ export const verifyRazorpayPayment = async (req, res) => {
           throw new Error(`Product ${product.name} is not available`);
         }
 
+        const reservation = await Reservation.findOne({
+          userId: req.user._id,
+          productId: item.productId,
+          status: "active",
+          expiresAt: { $gt: new Date() },
+        });
+
+        if (!reservation) {
+          throw new Error(
+            `Reservation expired for "${product.name}". Please go back to cart and try again.`
+          );
+        }
+
         // ✅ CRITICAL FIX: Add productOwnedBy field
         return {
           productId: product._id,
           sellerId: product.sellerId || null,
-          productOwnedBy: product.sellerId ? "seller" : "platform", // ✅ THIS WAS MISSING!
+          productOwnedBy: product.ownedBy || (product.sellerId ? "seller" : "platform"),
           name: item.name || product.name,
           price: item.price || product.price,
           quantity: item.quantity,

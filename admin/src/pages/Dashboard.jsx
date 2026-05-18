@@ -71,9 +71,9 @@ const Dashboard = ({ token, userRole }) => { // ✅ Add userRole prop
         endpoint={`${backendUrl}/api/ai/admin/insights`}
         token={token}
         suggestions={[
-          "What should I check first today?",
-          "Summarize pending products and risks",
-          "Find low stock or review issues that need action",
+          "Give me a priority checklist for today with reasons",
+          "Which pending products look risky and what should I inspect?",
+          "Find low stock, bad reviews, or order issues that need action",
         ]}
       />
 

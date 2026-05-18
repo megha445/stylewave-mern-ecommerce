@@ -49,7 +49,7 @@ const Orders = ({ token }) => {
     const statusFlow = {
       PLACED: "PROCESSING",
       PROCESSING: "SHIPPED",
-      SHIPPED: "DELIVERED",
+      SHIPPED: null,
       DELIVERED: null,
     };
     return statusFlow[currentStatus];

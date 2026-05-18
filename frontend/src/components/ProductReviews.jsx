@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import axios from "axios";
 import { assets } from "../assets/assets";
+import { ShopContext } from "../context/ShopContext";
 
 const ProductReviews = ({ productId, backendUrl }) => {
   const [reviews, setReviews] = useState([]);
@@ -11,11 +12,12 @@ const ProductReviews = ({ productId, backendUrl }) => {
   const [activeTab, setActiveTab] = useState("top"); // ✅ NEW
   const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
   const [loading, setLoading] = useState(false);
+  const { token, getAuthToken } = useContext(ShopContext);
 
   useEffect(() => {
     fetchReviews();
     checkCanReview();
-  }, [productId]);
+  }, [productId, token]);
 
   const fetchReviews = async () => {
     try {
@@ -31,12 +33,12 @@ const ProductReviews = ({ productId, backendUrl }) => {
   };
 
   const checkCanReview = async () => {
-    const token = localStorage.getItem("token");
     if (!token) return;
     try {
+      const authToken = await getAuthToken();
       const res = await axios.get(
         `${backendUrl}/api/reviews/can-review/${productId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (res.data.success) setCanReview(res.data.canReview);
     } catch (error) {
@@ -51,11 +53,11 @@ const ProductReviews = ({ productId, backendUrl }) => {
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const authToken = await getAuthToken();
       const res = await axios.post(
         `${backendUrl}/api/reviews/add`,
         { productId, rating: newReview.rating, comment: newReview.comment },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (res.data.success) {
         alert("Review added successfully!");

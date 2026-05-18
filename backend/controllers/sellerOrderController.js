@@ -236,6 +236,13 @@ const updateSellerOrderStatus = async (req, res) => {
     const currentStatus = order.status;
     const allowedNextStatus = statusFlow[currentStatus];
 
+    if (status === "DELIVERED") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin can mark order as delivered",
+      });
+    }
+    
     // 🔒 Cannot update DELIVERED or CANCELLED orders
     if (currentStatus === "DELIVERED" || currentStatus === "CANCELLED") {
       return res.status(400).json({

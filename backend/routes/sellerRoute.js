@@ -22,6 +22,11 @@ import {
 import { getCloudinarySignature } from "../controllers/uploadController.js";
 import adminAuth from "../middleware/adminAuth.js";
 import sellerAuth from "../middleware/sellerAuth.js";
+import {
+  authLimiter,
+  mutationLimiter,
+  passwordLimiter,
+} from "../middleware/rateLimiters.js";
 
 /**
  * @swagger
@@ -263,7 +268,7 @@ import sellerAuth from "../middleware/sellerAuth.js";
  * @swagger
  * /api/seller/product/update/{id}:
  *   put:
- *     summary: Update seller's own product (only if not approved)
+ *     summary: Update seller's own product and resubmit for approval
  *     tags: [Seller]
  *     security:
  *       - bearerAuth: []
@@ -273,6 +278,31 @@ import sellerAuth from "../middleware/sellerAuth.js";
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               category:
+ *                 type: string
+ *               subCategory:
+ *                 type: string
+ *               sizes:
+ *                 type: string
+ *                 example: '["S","M","L"]'
+ *               stock:
+ *                 type: number
+ *               image1:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: Product updated and resubmitted for approval
@@ -282,7 +312,7 @@ import sellerAuth from "../middleware/sellerAuth.js";
  * @swagger
  * /api/seller/product/delete/{id}:
  *   delete:
- *     summary: Delete seller's own product (only if not approved)
+ *     summary: Delete seller's own product
  *     tags: [Seller]
  *     security:
  *       - bearerAuth: []
@@ -295,6 +325,19 @@ import sellerAuth from "../middleware/sellerAuth.js";
  *     responses:
  *       200:
  *         description: Product deleted
+ */
+
+/**
+ * @swagger
+ * /api/seller/upload/cloudinary-signature:
+ *   get:
+ *     summary: Get signed Cloudinary upload parameters (Seller only)
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Signed upload payload returned
  */
 
 /**
@@ -386,19 +429,20 @@ import sellerAuth from "../middleware/sellerAuth.js";
 const sellerRouter = express.Router();
 
 // Auth routes
-sellerRouter.put("/change-password", sellerAuth, changePassword);
-sellerRouter.post("/forgot-password", forgotPassword);
+sellerRouter.put("/change-password", passwordLimiter, sellerAuth, changePassword);
+sellerRouter.post("/forgot-password", passwordLimiter, forgotPassword);
 
 // Admin seller management routes
-sellerRouter.post("/add", adminAuth, addSeller);
+sellerRouter.post("/add", mutationLimiter, adminAuth, addSeller);
 sellerRouter.get("/list", adminAuth, listSellers);
-sellerRouter.put("/update/:id", adminAuth, updateSeller);
-sellerRouter.delete("/delete/:id", adminAuth, deleteSeller);
-sellerRouter.put("/reset-password/:id", adminAuth, resetSellerPassword);
+sellerRouter.put("/update/:id", mutationLimiter, adminAuth, updateSeller);
+sellerRouter.delete("/delete/:id", mutationLimiter, adminAuth, deleteSeller);
+sellerRouter.put("/reset-password/:id", passwordLimiter, adminAuth, resetSellerPassword);
 
 // ✅ Seller product routes
 sellerRouter.post(
   "/product/add",
+  mutationLimiter,
   sellerAuth,
   upload.fields([
     { name: "image1", maxCount: 1 },
@@ -413,6 +457,7 @@ sellerRouter.get("/product/list", sellerAuth, getSellerProducts);
 
 sellerRouter.put(
   "/product/update/:id",
+  mutationLimiter,
   sellerAuth,
   upload.fields([
     { name: "image1", maxCount: 1 },
@@ -423,14 +468,14 @@ sellerRouter.put(
   updateSellerProduct
 );
 
-sellerRouter.delete("/product/delete/:id", sellerAuth, deleteSellerProduct);
+sellerRouter.delete("/product/delete/:id", mutationLimiter, sellerAuth, deleteSellerProduct);
 
 // ✅ Signed Cloudinary upload (seller)
-sellerRouter.get("/upload/cloudinary-signature", sellerAuth, getCloudinarySignature);
+sellerRouter.get("/upload/cloudinary-signature", authLimiter, sellerAuth, getCloudinarySignature);
 
 sellerRouter.get("/orders/dashboard", sellerAuth, getSellerDashboard);
 sellerRouter.get("/orders/list", sellerAuth, getSellerOrders);
-sellerRouter.put("/orders/reject/:orderId", sellerAuth, rejectOrder);
-sellerRouter.put("/orders/status/:orderId", sellerAuth, updateSellerOrderStatus);
+sellerRouter.put("/orders/reject/:orderId", mutationLimiter, sellerAuth, rejectOrder);
+sellerRouter.put("/orders/status/:orderId", mutationLimiter, sellerAuth, updateSellerOrderStatus);
 
 export default sellerRouter;

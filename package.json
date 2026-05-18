@@ -1,4 +1,7 @@
 {
   "name": "mern-ecommerce-main",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "mongoose": "^9.6.2"
+  }
 }

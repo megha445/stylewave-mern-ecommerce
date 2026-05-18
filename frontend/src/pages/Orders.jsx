@@ -1,24 +1,30 @@
 // 📁 frontend/src/pages/Orders.jsx
 
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import Title from "../components/Title";
 import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const token = localStorage.getItem("token");
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+  const { backendUrl, token, getAuthToken } = useContext(ShopContext);
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
+        const authToken = await getAuthToken();
+        if (!authToken) {
+          setOrders([]);
+          return;
+        }
+
         const { data } = await axios.get(
           `${backendUrl}/api/orders/myorders`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${authToken}`,
             },
           }
         );
@@ -48,12 +54,13 @@ const Orders = () => {
     }
 
     try {
+      const authToken = await getAuthToken();
       const { data } = await axios.put(
         `${backendUrl}/api/orders/${orderId}/cancel`,
         {},
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${authToken}`,
           },
         }
       );

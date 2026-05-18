@@ -5,11 +5,10 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { backendUrl, getCartCount, logout } = useContext(ShopContext);
+  const { backendUrl, getCartCount, logout, token, user, isSignedIn } = useContext(ShopContext);
 
-  const name = localStorage.getItem("userName") || "Customer";
-  const email = localStorage.getItem("userEmail") || "Not available";
-  const token = localStorage.getItem("token");
+  const name = user?.fullName || user?.username || localStorage.getItem("userName") || "Customer";
+  const email = user?.primaryEmailAddress?.emailAddress || localStorage.getItem("userEmail") || "Not available";
   const initials = name
     .split(" ")
     .filter(Boolean)
@@ -18,7 +17,7 @@ const Profile = () => {
     .join("")
     .toUpperCase();
 
-  if (!token) {
+  if (!isSignedIn) {
     return (
       <div className="max-w-xl mx-auto py-20 text-center">
         <h1 className="text-2xl font-semibold text-gray-900">My Profile</h1>
@@ -50,8 +49,8 @@ const Profile = () => {
     },
     {
       title: "Security",
-      description: "Update your password regularly to keep your account safe.",
-      button: "Change Password",
+      description: "Manage password, email, and connected login methods in Clerk.",
+      button: "Account Settings",
       onClick: () => navigate("/change-password-user"),
     },
   ];
@@ -138,9 +137,9 @@ const Profile = () => {
         endpoint={`${backendUrl}/api/ai/user/shopping`}
         token={token}
         suggestions={[
-          "Suggest products under 1500 for casual wear",
-          "What should I buy based on my recent orders?",
-          "Compare the best rated products available now",
+          "Pick the best value products under 1500 and explain why",
+          "Recommend what to buy next based on my recent orders",
+          "Compare the best rated products and tell me the best choice",
         ]}
       />
     </div>

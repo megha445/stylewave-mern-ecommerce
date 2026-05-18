@@ -1,278 +1,331 @@
-# StyleWave MERN E-Commerce Platform
+# StyleWave MERN Ecommerce
 
-StyleWave is a full-stack MERN e-commerce platform with separate applications for customers, sellers, and admins. It supports product management, seller approval workflow, orders, Razorpay payments, reviews, real-time updates, dashboards, Cloudinary image uploads, Redis caching, email notifications, and Groq-powered AI assistants.
+A full-stack multi-vendor ecommerce platform built with the MERN stack, Socket.IO, Redis, and Razorpay. It includes separate apps for customers, admins, and sellers, all powered by one shared backend API.
 
-## Project Highlights
+![MERN Stack](https://img.shields.io/badge/MERN-Stack-green)
+![Node.js](https://img.shields.io/badge/Node.js-Backend-brightgreen)
+![React](https://img.shields.io/badge/React-Frontend-blue)
+![MongoDB](https://img.shields.io/badge/MongoDB-Database-green)
+![Redis](https://img.shields.io/badge/Redis-Caching-red)
+![Socket.io](https://img.shields.io/badge/Socket.io-Realtime-black)
+![Razorpay](https://img.shields.io/badge/Razorpay-Payments-blue)
 
-- Customer storefront with product search, cart, checkout, orders, reviews, profile, and AI shopping helper
-- Seller dashboard with product upload, product management, orders, review insights, real-time updates, and AI growth helper
-- Admin dashboard with product approval, seller management, orders, reviews, analytics, and AI operations helper
-- JWT authentication for user, seller, and admin roles
-- Cloudinary image upload support
-- Razorpay payment integration
-- Socket.IO real-time updates for products, orders, and reviews
-- Redis caching for product and dashboard data
-- Groq AI integration using `llama-3.1-8b-instant`
+---
+
+## Features
+
+### Customer
+
+- Browse, search, filter, and sort products
+- Add products to cart and manage quantities
+- Place orders with Cash on Delivery or Razorpay
+- View order history and cancel eligible orders
+- Submit reviews after purchase
+- Use an AI shopping assistant
+
+### Admin
+
+- Add and manage platform products
+- Approve, reject, suspend, or restore seller products
+- Create and manage sellers
+- View platform orders, seller orders, all orders, and dashboard analytics
+- Moderate product reviews
+- Use an AI operations assistant
+
+### Seller
+
+- Add, edit, and delete seller products
+- Submit products for admin approval
+- View product reviews and manage orders
+- Monitor seller dashboard metrics
+- Use an AI seller insights assistant
+
+### Platform
+
+- Role-based authentication: Clerk for customers, JWT for admins and sellers
+- Stock reservation flow to reduce overselling during checkout
+- Socket.IO realtime updates for products and orders
+- Redis caching for dashboard and catalog data
+- Cloudinary image uploads
+- Razorpay payment verification and refund support
+- Cron jobs for expired reservations, low-stock alerts, and best-seller updates
+- Swagger / OpenAPI documentation
+- API rate limiting
+
+---
 
 ## Tech Stack
 
-- Frontend: React, Vite, Tailwind CSS, Axios, Socket.IO Client
-- Backend: Node.js, Express.js, MongoDB, Mongoose, Socket.IO
-- Cache: Redis
-- Payments: Razorpay
-- Media: Cloudinary
-- Email: Nodemailer
-- AI: Groq API
-- Deployment: Vercel for React apps, Render/Railway for backend, MongoDB Atlas, Redis Cloud/Upstash
+### Frontend
 
-## Folder Structure
+- React + Vite
+- Tailwind CSS
+- React Router
+- Axios
+- Recharts 
+- React Toastify
+
+### Backend
+
+- Node.js + Express
+- MongoDB + Mongoose
+- Clerk + JWT + bcrypt
+- Redis + Socket.IO
+- Cloudinary + Multer
+- Razorpay
+- Nodemailer
+- Swagger
+- node-cron
+
+---
+
+## Installation And Setup
+
+### Prerequisites
+
+- Node.js 18 or higher
+- MongoDB database
+- Cloudinary account
+- Clerk account
+- Razorpay account
+- Redis instance
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/megha445/stylewave-mern-ecommerce.git
+cd stylewave-mern-ecommerce
+```
+
+### 2. Install Dependencies
+
+Run these from the project root:
+
+```bash
+npm install
+cd backend && npm install
+cd ../frontend && npm install
+cd ../admin && npm install
+cd ../seller && npm install
+```
+
+### 3. Create Environment Files
+
+Copy the example files and fill in your values:
 
 ```text
-MERN-Ecommerce-main/
-  backend/   Express API, MongoDB models, controllers, routes, sockets, cron jobs
-  frontend/  Customer shopping app
-  admin/     Admin dashboard
-  seller/    Seller dashboard
+backend/.env.example  -> backend/.env
+frontend/.env.example -> frontend/.env
+admin/.env.example    -> admin/.env
+seller/.env.example   -> seller/.env
 ```
 
-## Local Setup
+Update values for MongoDB, Clerk, Cloudinary, email, Razorpay, Redis, and AI provider keys.
 
-Install dependencies in each app:
+### 4. Start The Backend
 
-```powershell
+```bash
 cd backend
-npm install
-
-cd ../frontend
-npm install
-
-cd ../admin
-npm install
-
-cd ../seller
-npm install
+npm run server
 ```
+
+### 5. Start The React Apps
+
+Open separate terminals for each:
+
+```bash
+cd frontend && npm run dev
+```
+
+```bash
+cd admin && npm run dev
+```
+
+```bash
+cd seller && npm run dev
+```
+
+---
+
+## Local URLs
+
+| Service | URL |
+| --- | --- |
+| Customer frontend | `http://localhost:5173` |
+| Admin dashboard | `http://localhost:5174` |
+| Seller dashboard | `http://localhost:5175` |
+| Backend API | `http://localhost:4000` |
+| Swagger docs | `http://localhost:4000/api-docs` |
+
+---
+
+## Default Admin Account
+
+To create a local default admin:
+
+```bash
+cd backend
+npm run createAdmin.js
+```
+
+Default credentials:
+
+```text
+Email: admin@stylewave.com
+Password: Admin@123456
+```
+
+Change the password before using the project in any real environment.
+
+---
+
+## How To Use
+
+1. **Customer**: sign in with Clerk, browse products, add items to cart, and checkout with COD or Razorpay
+2. **Seller**: log in, add products, submit them for approval, and manage orders and reviews
+3. **Admin**: log in, approve or reject seller products, manage sellers, and monitor platform analytics
+4. **API docs**: visit `http://localhost:4000/api-docs` for Swagger documentation
+
+
+---
+
+## Main API Endpoints
+
+### User And Auth
+
+- `POST /api/user/admin` - Admin login
+- `POST /api/user/seller` - Seller login
+- `POST /api/user/forgot-password` - User password recovery
+- `GET /api/user/cart` - Get customer cart
+
+### Products
+
+- `GET /api/product/list` - List products
+- `GET /api/product/search` - Search products
+- `POST /api/product/add` - Add product
+- `GET /api/product/pending` - Get pending seller products
+
+### Orders
+
+- `POST /api/orders` - Create COD order
+- `POST /api/orders/reserve` - Reserve stock during checkout
+- `GET /api/orders/myorders` - Get customer orders
+
+
+### Sellers
+
+- `POST /api/seller/add` - Create seller
+- `GET /api/seller/list` - List sellers
+- `GET /api/seller/product/list` - Get seller products
+
+### Reviews
+
+- `GET /api/reviews/product/:productId` - Get public product reviews
+- `POST /api/reviews/add` - Add review
+- `GET /api/reviews/admin/all` - Get all reviews for admin
+
+### Payments
+
+- `GET /api/payment/razorpay/key` - Get Razorpay public key
+- `POST /api/payment/razorpay/create-order` - Create Razorpay order
+- `POST /api/payment/razorpay/verify` - Verify Razorpay payment and create order
+
+### AI Assistants
+
+- `POST /api/ai/user/shopping` - Customer shopping assistant
+- `POST /api/ai/seller/insights` - Seller insights assistant
+- `POST /api/ai/admin/insights` - Admin operations assistant
+
+Full documentation is available at `http://localhost:4000/api-docs`.
+
+---
 
 ## Environment Variables
 
-Create `backend/.env`:
+### Backend
 
-```env
-PORT=4000
-MONGO_URI=mongodb://127.0.0.1:27017/mern_ecommerce
-JWT_SECRET=your_jwt_secret
+| Variable | Description | Example |
+| --- | --- | --- |
+| `PORT` | Backend server port | `4000` |
+| `TRUST_PROXY` | Enable proxy trust in production | `false` |
+| `MONGO_URI` | MongoDB connection string | `mongodb://127.0.0.1:27017/stylewave` |
+| `JWT_SECRET` | Secret used for JWT signing | `change_me_in_real_use` |
+| `CLERK_SECRET_KEY` | Clerk backend secret | `sk_test_...` |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name | `your_cloudinary_cloud_name` |
+| `CLOUDINARY_API_KEY` | Cloudinary API key | `your_cloudinary_api_key` |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret | `your_cloudinary_api_secret` |
+| `EMAIL_USER` | Email account used for sending mail | `your_email@gmail.com` |
+| `EMAIL_PASSWORD` | Email app password | `your_email_app_password` |
+| `EMAIL_FROM_NAME` | Sender display name | `Stylewave` |
+| `EMAIL_REPLY_TO` | Reply-to address | `your_support_email@gmail.com` |
+| `RAZORPAY_KEY_ID` | Razorpay key ID | `your_razorpay_key_id` |
+| `RAZORPAY_KEY_SECRET` | Razorpay key secret | `your_razorpay_key_secret` |
+| `FRONTEND_URL` | Customer app URL | `http://localhost:5173` |
+| `ADMIN_DASHBOARD_URL` | Admin app URL | `http://localhost:5174` |
+| `SELLER_DASHBOARD_URL` | Seller app URL | `http://localhost:5175` |
+| `SOCKET_CORS_ORIGIN` | Allowed Socket.IO origins | `http://localhost:5173,http://localhost:5174,http://localhost:5175` |
+| `REDIS_URL` | Redis connection URL | `redis://127.0.0.1:6379` |
+| `AI_PROVIDER` | AI provider selector | `groq` |
+| `GROQ_API_KEY` | Groq API key | `your_groq_key_here` |
+| `AI_MODEL` | AI model name | `llama-3.1-8b-instant` |
 
-CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+### Frontend Apps
 
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
+| App | Variable | Example |
+| --- | --- | --- |
+| `frontend` | `VITE_BACKEND_URL` | `http://localhost:4000` |
+| `frontend` | `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_...` |
+| `admin` | `VITE_BACKEND_URL` | `http://localhost:4000` |
+| `seller` | `VITE_BACKEND_URL` | `http://localhost:4000` |
 
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+---
 
-FRONTEND_URL=http://localhost:5173
-SELLER_DASHBOARD_URL=http://localhost:5175
+## Notable Backend Workflows
 
-REDIS_URL=redis://127.0.0.1:6379
+### Checkout And Inventory
 
-AI_PROVIDER=groq
-GROQ_API_KEY=your_groq_key_here
-AI_MODEL=llama-3.1-8b-instant
-```
+Stock is reserved before order creation. If checkout is not completed in time, a cron job automatically releases expired reservations to reduce overselling.
 
-Create `frontend/.env`, `admin/.env`, and `seller/.env`:
+### Realtime Updates
 
-```env
-VITE_BACKEND_URL=http://localhost:4000
-```
+Socket.IO broadcasts product and order changes so dashboards and catalog views can refresh without manual reloads.
 
-## Redis Setup
+### Best-Seller Updates
 
-Redis is used for caching product lists and dashboard data. The project now reads Redis from:
+A scheduled job calculates top products using recent sales, ratings, review count, and recency, then updates best-seller flags automatically.
 
-```env
-REDIS_URL=redis://127.0.0.1:6379
-```
+---
 
-### Local Redis
+## Future Improvements
 
-If you are using Ubuntu/WSL locally:
+- Add automated tests for backend APIs and frontend flows
+- Add Docker and CI/CD setup
+- Replace temporary-password email flows with tokenized reset links
+- Move auth tokens from localStorage to secure cookie-based handling
+- Add richer deployment documentation and screenshots
 
-```bash
-sudo apt update
-sudo apt install redis-server
-sudo service redis-server start
-redis-cli ping
-```
+---
 
-Expected output:
+## Acknowledgments
 
-```text
-PONG
-```
+- [Clerk](https://clerk.com) for customer authentication
+- [Razorpay](https://razorpay.com) for payment processing
+- [Socket.IO](https://socket.io) for realtime communication
+- [MongoDB](https://www.mongodb.com) for the database
+- [Cloudinary](https://cloudinary.com) for image hosting
+- [Redis](https://redis.io) for caching
+- [React](https://react.dev) for the UI library
+- [Tailwind CSS](https://tailwindcss.com) for styling
 
-### Redis During Deployment
+---
 
-Do not use `redis://127.0.0.1:6379` on Render/Railway unless Redis is installed inside the same server. For normal deployment, use a managed Redis provider.
+## Author
 
-Recommended options:
+**Megha shyam**
 
-- Upstash Redis: https://upstash.com
-- Redis Cloud: https://redis.com/try-free
-- Railway Redis plugin if backend is deployed on Railway
+- GitHub: [megha445](https://github.com/megha445)
+- Email: vattamvenkatasaimeghashyamredd@gmail.com
 
-After creating Redis, copy the provider connection URL and set it as:
+---
 
-```env
-REDIS_URL=rediss://default:password@host:port
-```
-
-If Redis is not configured correctly, the app will still run, but caching will be disabled.
-
-## Groq AI Setup
-
-Create a Groq API key here:
-
-https://console.groq.com/keys
-
-Then set:
-
-```env
-AI_PROVIDER=groq
-GROQ_API_KEY=your_groq_key_here
-AI_MODEL=llama-3.1-8b-instant
-```
-
-AI assistants are available in:
-
-- Customer profile page
-- Seller dashboard
-- Admin dashboard
-
-## Run Locally
-
-Start backend:
-
-```powershell
-cd backend
-node server.js
-```
-
-Start customer app:
-
-```powershell
-cd frontend
-.\node_modules\.bin\vite.cmd
-```
-
-Start admin app:
-
-```powershell
-cd admin
-.\node_modules\.bin\vite.cmd
-```
-
-Start seller app:
-
-```powershell
-cd seller
-.\node_modules\.bin\vite.cmd
-```
-
-Local URLs:
-
-- Customer: http://localhost:5173
-- Admin: http://localhost:5174
-- Seller: http://localhost:5175
-- Backend: http://localhost:4000
-
-## Deployment Plan
-
-### 1. Database
-
-Create a MongoDB Atlas cluster and set:
-
-```env
-MONGO_URI=your_mongodb_atlas_connection_string
-```
-
-### 2. Backend
-
-Deploy `backend/` to Render or Railway.
-
-Build command:
-
-```bash
-npm install
-```
-
-Start command:
-
-```bash
-node server.js
-```
-
-Set all backend environment variables in the hosting dashboard.
-
-### 3. Customer App
-
-Deploy `frontend/` to Vercel.
-
-Set:
-
-```env
-VITE_BACKEND_URL=https://your-backend-url
-```
-
-### 4. Admin App
-
-Deploy `admin/` to Vercel.
-
-Set:
-
-```env
-VITE_BACKEND_URL=https://your-backend-url
-```
-
-### 5. Seller App
-
-Deploy `seller/` to Vercel.
-
-Set:
-
-```env
-VITE_BACKEND_URL=https://your-backend-url
-```
-
-### 6. Backend URLs
-
-After deployment, update backend env values:
-
-```env
-FRONTEND_URL=https://your-customer-app.vercel.app
-SELLER_DASHBOARD_URL=https://your-seller-app.vercel.app
-```
-
-## Important Security Notes
-
-- Never commit real `.env` files to GitHub.
-- Rotate any keys that were exposed during development.
-- Use app passwords for Gmail, not your main email password.
-- Use test Razorpay keys for demo unless going live.
-- Keep admin credentials private.
-
-## Suggested Demo Flow
-
-1. Login as admin and show dashboard.
-2. Add or approve a seller product.
-3. Login as seller and show product/order/review management.
-4. Login as customer and place an order.
-5. Show real-time order/product updates.
-6. Add a product review and show seller review update.
-7. Ask the AI assistant in customer, seller, and admin panels.
-
-## Interview Explanation
-
-This project is a multi-role MERN e-commerce platform. Customers can browse, order, pay, and review products. Sellers can upload products and manage seller-side orders. Admins approve seller products, manage sellers, and monitor platform activity. Real-time updates are handled with Socket.IO, caching is handled with Redis, images are stored on Cloudinary, payments use Razorpay, and Groq AI assistants provide shopping, seller, and admin insights.
+If you found this project helpful, please give it a star.

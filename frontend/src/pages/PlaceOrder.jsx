@@ -1,6 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
 import Title from "../components/Title";
 import CartTotal from "../components/CartTotal";
 import { assets } from "../assets/assets";
@@ -30,6 +29,7 @@ const PlaceOrder = () => {
     backendUrl,
     delivery_fee,
     clearCart,
+    getAuthToken,
   } = useContext(ShopContext);
 
   // ✅ Fetch Razorpay key on mount
@@ -72,7 +72,7 @@ const PlaceOrder = () => {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = await getAuthToken();
 // Get from context
     const finalAmount = totalPrice + delivery_fee; // ✅ Add delivery fee
 
@@ -87,6 +87,7 @@ const PlaceOrder = () => {
           amount: finalAmount,
           currency: "INR",
           receipt: `receipt_${Date.now()}`,
+          orderItems,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -152,14 +153,14 @@ const PlaceOrder = () => {
       paymentObject.open();
     } catch (error) {
       console.error("Razorpay error:", error);
-      alert("Payment failed");
+      alert(error.response?.data?.message || "Payment failed");
     }
   };
 
   // ✅ Handle COD Payment
   const handleCODPayment = async (orderItems, totalPrice) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = await getAuthToken();
       const finalAmount = totalPrice + delivery_fee;
       const response = await axios.post(
         `${backendUrl}/api/orders`,
@@ -190,7 +191,7 @@ const PlaceOrder = () => {
   // ✅ Main Order Handler
   const placeOrderHandler = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = await getAuthToken();
 
       if (!token) {
         alert("Please login first");

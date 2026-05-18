@@ -27,15 +27,17 @@ export const currency = (price) => {
 
 const App = () => {
   // ✅ READ ADMIN TOKEN (FIX)
-  const [token, setToken] = useState(
-    localStorage.getItem("adminToken") || ""
-  );
+  const [token, setToken] = useState(localStorage.getItem("adminToken") || "");
+  const [adminName, setAdminName] = useState(localStorage.getItem("adminName") || "Admin");
 
   useEffect(() => {
     if (token) {
       localStorage.setItem("adminToken", token);
+      setAdminName(localStorage.getItem("adminName") || "Admin");
     } else {
       localStorage.removeItem("adminToken");
+      localStorage.removeItem("adminName");
+      setAdminName("Admin");
     }
   }, [token]);
 
@@ -47,7 +49,7 @@ const App = () => {
         <Login setToken={setToken} />
       ) : (
         <>
-          <Navbar setToken={setToken} />
+          <Navbar setToken={setToken} adminName={adminName} />
           <hr />
 
           <div className="flex w-full">

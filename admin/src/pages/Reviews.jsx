@@ -28,7 +28,7 @@ const Reviews = ({ token }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) {
-        setProducts(res.data.products);
+        setProducts(res.data.products.filter((product) => product.status === "Approved"));
       }
     } catch (error) {
       console.error("Failed to fetch products");
@@ -37,11 +37,10 @@ const Reviews = ({ token }) => {
   };
 
   const filteredProducts = products.filter((p) => {
+    const normalizedSearch = searchQuery.toLowerCase();
     const matchesSearch =
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.sellerEmail && p.sellerEmail.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.addedByEmail && p.addedByEmail.toLowerCase().includes(searchQuery.toLowerCase()));
+      (p.sellerEmail && p.sellerEmail.toLowerCase().includes(normalizedSearch)) ||
+      (p.addedByEmail && p.addedByEmail.toLowerCase().includes(normalizedSearch));
 
     const matchesRating =
       filterRating === "all"
@@ -62,7 +61,7 @@ const Reviews = ({ token }) => {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by product name, ID, or seller email..."
+          placeholder="Search by email..."
           className="flex-1 min-w-[300px] px-4 py-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 outline-none"
         />
         <select

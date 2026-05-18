@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: stylewave-backend
-    env: node
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: node server.js
-    autoDeploy: true

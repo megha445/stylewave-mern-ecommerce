@@ -1,5 +1,23 @@
 import Reservation from '../models/reservationModel.js';
 import productModel from '../models/productModel.js';
+import { emitToAdmins, emitToSeller } from '../socket.js';
+
+const emitStockChanged = (product, action) => {
+  if (!product) return;
+
+  const payload = {
+    productId: product._id,
+    action,
+    status: product.status,
+    stock: product.stock,
+    sellerId: product.sellerId || null,
+  };
+
+  emitToAdmins('product:changed', payload);
+  if (product.sellerId) {
+    emitToSeller(product.sellerId.toString(), 'product:changed', payload);
+  }
+};
 
 export const reserveStock = async (req, res) => {
   try {
@@ -24,6 +42,7 @@ export const reserveStock = async (req, res) => {
       if (product) {
         product.stock += reservation.quantity;
         await product.save();
+        emitStockChanged(product, 'reservation-released');
       }
       reservation.status = 'released';
       await reservation.save();
@@ -46,6 +65,7 @@ export const reserveStock = async (req, res) => {
       // Temporarily deduct stock
       product.stock -= item.quantity;
       await product.save();
+      emitStockChanged(product, 'stock-reserved');
 
       // Create reservation for 5 minutes
       await Reservation.create({

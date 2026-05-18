@@ -1,6 +1,4 @@
-import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import userModel from "../models/userModel.js";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -16,14 +14,27 @@ dotenv.config({ path: join(__dirname, "..", ".env") });
 
 await connectDB();
 
-const password = await bcrypt.hash("meghashyam2", 10);
+const defaultAdmin = {
+  name: "Default Admin",
+  email: "admin@stylewave.com",
+  password: "Admin@123456",
+};
+
+const existingAdmin = await adminModel.findOne({ email: defaultAdmin.email });
+
+if (existingAdmin) {
+  console.log("Default admin already exists");
+  process.exit();
+}
+
+const password = await bcrypt.hash(defaultAdmin.password, 10);
 
 await adminModel.create({
-  name: "Admin three",
-  email: "metermama775@gmail.com",
+  name: defaultAdmin.name,
+  email: defaultAdmin.email,
   password,
   role: "admin",
 });
 
-console.log("Admin created");
+console.log(`Admin created: ${defaultAdmin.email}`);
 process.exit();

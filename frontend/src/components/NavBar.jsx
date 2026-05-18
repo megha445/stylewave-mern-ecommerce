@@ -1,28 +1,20 @@
 import React, { useContext, useState } from 'react';
+import { UserButton } from '@clerk/react';
 import { assets } from '../assets/assets';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 
 const NavBar = () => {
   const [visible, setVisible] = useState(false);
-  const { setShowSearch, getCartCount } = useContext(ShopContext);
+  const { setShowSearch, getCartCount, isSignedIn, logout } = useContext(ShopContext);
   const navigate = useNavigate();
 
-  const isLoggedIn = !!localStorage.getItem("token");
-
   const handleProfileClick = () => {
-    if (!isLoggedIn) {
+    if (!isSignedIn) {
       navigate("/login");
       return;
     }
     navigate("/profile");
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userEmail");
-    navigate("/login");
   };
 
   return (
@@ -58,9 +50,13 @@ const NavBar = () => {
             alt="Profile"
           />
 
-          {isLoggedIn && (
+          {isSignedIn && (
             <div className='absolute right-0 hidden pt-4 group-hover:block'>
               <div className='flex flex-col gap-2 px-5 py-3 text-gray-500 rounded w-36 bg-slate-100'>
+                <div className='pb-1'>
+                  <UserButton afterSignOutUrl="/login" />
+                </div>
+
                 <p
                   onClick={() => navigate("/profile")}
                   className='cursor-pointer hover:text-black'
@@ -79,11 +75,11 @@ const NavBar = () => {
                   onClick={() => navigate("/change-password-user")}
                   className='cursor-pointer hover:text-black'
                 >
-                  Change Password
+                  Account Settings
                 </p>
 
                 <p
-                  onClick={handleLogout}
+                  onClick={logout}
                   className='cursor-pointer hover:text-black'
                 >
                   Logout

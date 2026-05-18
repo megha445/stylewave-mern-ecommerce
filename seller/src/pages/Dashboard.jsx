@@ -65,9 +65,9 @@ const Dashboard = ({ token }) => {
         endpoint={`${backendUrl}/api/ai/seller/insights`}
         token={token}
         suggestions={[
-          "Summarize my product performance and biggest risks",
-          "Which products need stock or listing improvements?",
-          "What are customers complaining about in reviews?",
+          "Give me today's growth checklist based on my products and orders",
+          "Which products need stock, price, or listing improvements first?",
+          "Summarize customer complaints and tell me what to fix",
         ]}
       />
 

@@ -12,17 +12,23 @@ import reviewRouter from "./routes/reviewRoute.js";
 import paymentRouter from "./routes/paymentRoute.js";
 import aiRouter from "./routes/aiRoute.js";
 import morgan from "morgan";
+import { clerkMiddleware } from "@clerk/express";
 import { swaggerUi, swaggerSpec } from "./swagger.js";
 import startBestSellerCron from "./cron/updateBestSellers.js";
 import cron from 'node-cron';
 import Reservation from './models/reservationModel.js';
 import productModel from './models/productModel.js';
 import { sendLowStockEmail } from './config/email.js';
-import { initSocket } from "./socket.js";
+import { emitToAdmins, emitToSeller, initSocket } from "./socket.js";
+import { apiLimiter } from "./middleware/rateLimiters.js";
 
 const app = express();
 const httpServer = createServer(app);
 const port = process.env.PORT || 4000;
+
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
 
 connectDB();
 connectCloudinary();
@@ -37,14 +43,19 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan("dev"));
+if (process.env.CLERK_SECRET_KEY) {
+  app.use(clerkMiddleware());
+} else {
+  console.warn("CLERK_SECRET_KEY is not set. Clerk-protected customer routes will reject requests.");
+}
 
 // Routes
+app.use("/api", apiLimiter);
 app.use("/api/user", userRouter);
 app.use("/api/product", productRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/seller", sellerRouter);
-app.use("/api/admin", productRouter);
 app.use("/api/reviews", reviewRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/ai", aiRouter);
@@ -62,6 +73,17 @@ cron.schedule('* * * * *', async () => {
       if (product) {
         product.stock += reservation.quantity;
         await product.save();
+        const payload = {
+          productId: product._id,
+          action: 'reservation-released',
+          status: product.status,
+          stock: product.stock,
+          sellerId: product.sellerId || null,
+        };
+        emitToAdmins('product:changed', payload);
+        if (product.sellerId) {
+          emitToSeller(product.sellerId.toString(), 'product:changed', payload);
+        }
       }
       reservation.status = 'released';
       await reservation.save();

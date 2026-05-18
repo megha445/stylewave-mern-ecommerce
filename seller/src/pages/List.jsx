@@ -367,6 +367,9 @@ const List = () => {
                         Price
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                        Stock
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Status
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -408,6 +411,21 @@ const List = () => {
                           <div className="text-sm font-semibold text-gray-900">
                             ₹{product.price}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-gray-900">
+                            {product.stock || 0}
+                          </div>
+                          {product.status === "Approved" && Number(product.stock || 0) > 0 && Number(product.stock || 0) <= 15 && (
+                            <div className="mt-1 text-xs font-medium text-orange-600">
+                              Low stock
+                            </div>
+                          )}
+                          {product.status === "Approved" && Number(product.stock || 0) === 0 && (
+                            <div className="mt-1 text-xs font-medium text-red-600">
+                              Out of stock
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(product.status)}

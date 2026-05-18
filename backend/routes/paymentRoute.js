@@ -5,6 +5,7 @@ import {
   getRazorpayKey,
 } from "../controllers/paymentController.js";
 import protect from "../middleware/authMiddleware.js";
+import { paymentLimiter } from "../middleware/rateLimiters.js";
 
 /**
  * @swagger
@@ -49,6 +50,15 @@ import protect from "../middleware/authMiddleware.js";
  *               receipt:
  *                 type: string
  *                 example: "receipt_123"
+ *               orderItems:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
  *     responses:
  *       200:
  *         description: Razorpay order created
@@ -78,6 +88,19 @@ import protect from "../middleware/authMiddleware.js";
  *                 type: string
  *               orderItems:
  *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     price:
+ *                       type: number
+ *                     quantity:
+ *                       type: number
+ *                     size:
+ *                       type: string
  *               totalPrice:
  *                 type: number
  *               address:
@@ -93,10 +116,10 @@ const paymentRouter = express.Router();
 paymentRouter.get("/razorpay/key", getRazorpayKey);
 
 // Create Razorpay order
-paymentRouter.post("/razorpay/create-order", protect, createRazorpayOrder);
+paymentRouter.post("/razorpay/create-order", paymentLimiter, protect, createRazorpayOrder);
 
 // Verify payment and create order
-paymentRouter.post("/razorpay/verify", protect, verifyRazorpayPayment);
+paymentRouter.post("/razorpay/verify", paymentLimiter, protect, verifyRazorpayPayment);
 
 
 export default paymentRouter;

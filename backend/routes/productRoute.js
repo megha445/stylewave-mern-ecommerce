@@ -15,6 +15,7 @@ import {
 import upload from "../middleware/multer.js";
 import adminAuth from "../middleware/adminAuth.js";
 import sellerAuth from "../middleware/sellerAuth.js";
+import { mutationLimiter } from "../middleware/rateLimiters.js";
 
 /**
  * @swagger
@@ -90,6 +91,12 @@ import sellerAuth from "../middleware/sellerAuth.js";
  *           type: integer
  *           example: 12
  *         description: Products per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [low-high, high-low, newest]
+ *         description: Optional sort order
  *     responses:
  *       200:
  *         description: List of products with pagination info
@@ -240,8 +247,10 @@ import sellerAuth from "../middleware/sellerAuth.js";
  * @swagger
  * /api/product/single/{id}:
  *   get:
- *     summary: Get single product by ID
+ *     summary: Get single product by ID (Admin only)
  *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -289,11 +298,50 @@ import sellerAuth from "../middleware/sellerAuth.js";
  *         description: Product updated
  */
 
+/**
+ * @swagger
+ * /api/product/suspend/{id}:
+ *   put:
+ *     summary: Suspend a product (Admin only)
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product suspended
+ */
+
+/**
+ * @swagger
+ * /api/product/unsuspend/{id}:
+ *   put:
+ *     summary: Unsuspend a product (Admin only)
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product unsuspended
+ */
+
 const productRouter = express.Router();
 
 // ✅ Admin or Seller can add products
 productRouter.post(
   "/add",
+  mutationLimiter,
   upload.fields([
     { name: "image1", maxCount: 1 },
     { name: "image2", maxCount: 1 },
@@ -340,13 +388,13 @@ productRouter.get("/list", (req, res, next) => {
 
 // ✅ Admin only routes
 productRouter.get("/pending", adminAuth, getPendingProducts);
-productRouter.put("/approve/:productId", adminAuth, approveProduct);
-productRouter.put("/reject/:productId", adminAuth, rejectProduct);
-productRouter.post("/remove", adminAuth, removeProduct);
+productRouter.put("/approve/:productId", mutationLimiter, adminAuth, approveProduct);
+productRouter.put("/reject/:productId", mutationLimiter, adminAuth, rejectProduct);
+productRouter.post("/remove", mutationLimiter, adminAuth, removeProduct);
 productRouter.get("/single/:id", adminAuth, getSingleProduct);
-productRouter.put("/update/:id", adminAuth, updateProduct);
+productRouter.put("/update/:id", mutationLimiter, adminAuth, updateProduct);
 productRouter.get("/search", searchProducts);
-productRouter.put("/suspend/:id", adminAuth, suspendProduct);
-productRouter.put("/unsuspend/:id", adminAuth, unsuspendProduct);
+productRouter.put("/suspend/:id", mutationLimiter, adminAuth, suspendProduct);
+productRouter.put("/unsuspend/:id", mutationLimiter, adminAuth, unsuspendProduct);
 
 export default productRouter;

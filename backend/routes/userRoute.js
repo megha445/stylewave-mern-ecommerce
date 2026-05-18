@@ -14,6 +14,11 @@ import {
   clearCart,
 } from "../controllers/cartController.js";
 import protect from "../middleware/authMiddleware.js";
+import {
+  authLimiter,
+  mutationLimiter,
+  passwordLimiter,
+} from "../middleware/rateLimiters.js";
 
 /**
  * @swagger
@@ -258,26 +263,26 @@ import protect from "../middleware/authMiddleware.js";
 const userRouter = express.Router();
 
 // SIGN UP
-userRouter.post("/register", registerUser);
+userRouter.post("/register", authLimiter, registerUser);
 
 // LOGIN
-userRouter.post("/login", loginUser);
+userRouter.post("/login", authLimiter, loginUser);
 
 // ADMIN LOGIN
-userRouter.post("/admin", loginAdmin);
+userRouter.post("/admin", authLimiter, loginAdmin);
 
 //SELLER LOGIN
-userRouter.post("/seller",loginSeller);
+userRouter.post("/seller", authLimiter, loginSeller);
 
 //USER FORGOT PASSWORD
-userRouter.post("/forgot-password", forgotPassword);
+userRouter.post("/forgot-password", passwordLimiter, forgotPassword);
 
 //CHANGE PASSWORD
-userRouter.post("/change-password-user", protect, changePasswordUser);
+userRouter.post("/change-password-user", passwordLimiter, protect, changePasswordUser);
 
 userRouter.get("/cart", protect, getCart);
-userRouter.post("/cart/add", protect, addToCart);
-userRouter.post("/cart/update", protect, updateCart);
-userRouter.post("/cart/clear", protect, clearCart);
+userRouter.post("/cart/add", mutationLimiter, protect, addToCart);
+userRouter.post("/cart/update", mutationLimiter, protect, updateCart);
+userRouter.post("/cart/clear", mutationLimiter, protect, clearCart);
 
 export default userRouter;

@@ -4,7 +4,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "migrate-admins": "node scripts/migrateAdmins.js",
+    "create-admin": "node scripts/createAdmin.js",
     "start": "node server.js",
     "server": "nodemon server.js"
   },
@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@clerk/express": "^2.1.17",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.5.0",

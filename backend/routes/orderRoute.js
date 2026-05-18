@@ -13,6 +13,10 @@ import  {getAllOrders,
 }  from "../controllers/orderController.js";
 import { getAdminDashboard } from "../controllers/orderController.js";
 import { reserveStock } from '../controllers/reservationController.js';
+import {
+  checkoutLimiter,
+  mutationLimiter,
+} from "../middleware/rateLimiters.js";
 
 /**
  * @swagger
@@ -215,13 +219,13 @@ import { reserveStock } from '../controllers/reservationController.js';
 const router = express.Router();
 
 // CREATE ORDER
-router.post("/", protect, createOrder);
+router.post("/", checkoutLimiter, protect, createOrder);
 
 // GET LOGGED-IN USER ORDERS
 router.get("/myorders", protect, getMyOrders);
 
 // CANCEL ORDER
-router.put("/:id/cancel", protect, cancelOrder);
+router.put("/:id/cancel", mutationLimiter, protect, cancelOrder);
 
 //GET ALL ORDERS
 router.get("/admin/all", adminAuth, getAllOrders);
@@ -231,10 +235,10 @@ router.get("/admin/platform", adminAuth, getPlatformOrders); // NEW
 router.get("/admin/seller-overview", adminAuth, getSellerOrders); // NEW
 
 //GET ALL ORDER STATUS
-router.put("/admin/status/:orderId", adminAuth, updateOrderStatus);
+router.put("/admin/status/:orderId", mutationLimiter, adminAuth, updateOrderStatus);
 
 router.get("/admin/dashboard", adminAuth, getAdminDashboard);
 
-router.post('/reserve', protect, reserveStock);
+router.post('/reserve', checkoutLimiter, protect, reserveStock);
 
 export default router;

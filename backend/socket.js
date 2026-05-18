@@ -1,5 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import { clerkClient, verifyToken } from "@clerk/express";
+import userModel from "./models/userModel.js";
 
 let io;
 
@@ -16,16 +18,41 @@ export const initSocket = (httpServer) => {
     },
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) return next();
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = {
-        id: decoded.id,
-        role: decoded.role,
-      };
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.user = {
+          id: decoded.id,
+          role: decoded.role,
+        };
+        return next();
+      } catch (jwtError) {
+        if (!process.env.CLERK_SECRET_KEY) throw jwtError;
+      }
+
+      const clerkPayload = await verifyToken(token, {
+        secretKey: process.env.CLERK_SECRET_KEY,
+      });
+      const clerkUser = await clerkClient.users.getUser(clerkPayload.sub);
+      const email =
+        clerkUser.primaryEmailAddress?.emailAddress ||
+        clerkUser.emailAddresses?.[0]?.emailAddress;
+      const mongoUser = email
+        ? await userModel.findOne({
+            $or: [{ clerkId: clerkPayload.sub }, { email: email.toLowerCase() }],
+          })
+        : null;
+
+      if (mongoUser) {
+        socket.user = {
+          id: mongoUser._id.toString(),
+          role: "user",
+        };
+      }
       return next();
     } catch (error) {
       return next(new Error("Socket auth failed"));

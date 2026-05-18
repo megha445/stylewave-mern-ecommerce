@@ -113,8 +113,9 @@ const List = ({ token }) => {
     };
   }, []);
 
-  const platformProducts = allProducts.filter(p => p.ownedBy === "platform" || !p.sellerId);
-  const sellerProducts = allProducts.filter(p => p.ownedBy === "seller" && p.sellerId);
+  const visibleProducts = allProducts.filter(p => p.status !== "Pending");
+  const platformProducts = visibleProducts.filter(p => p.ownedBy === "platform" || !p.sellerId);
+  const sellerProducts = visibleProducts.filter(p => p.ownedBy === "seller" && p.sellerId);
 
   const filteredPlatformProducts = platformProducts.filter(p =>
     p.name.toLowerCase().includes(platformSearch.toLowerCase()) ||

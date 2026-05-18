@@ -70,7 +70,8 @@ export const createOrder = async (req, res) => {
         const reservation = await Reservation.findOne({
           userId: req.user._id,
           productId: item.productId,
-          status: 'active'
+          status: 'active',
+          expiresAt: { $gt: new Date() },
         });
 
         if (!reservation) {

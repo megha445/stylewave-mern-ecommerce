@@ -22,15 +22,10 @@ const options = {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
-          description: "Enter your JWT token"
+          description: "Use a Bearer token. Customer routes accept Clerk session tokens; admin and seller routes accept app-issued JWTs.",
         },
       },
     },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
   },
   apis: ["./routes/*.js"],
 };

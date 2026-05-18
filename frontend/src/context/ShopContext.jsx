@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { connectSocket } from "../lib/socket";
+import { useAuth, useUser } from "@clerk/react";
 
 export const ShopContext = createContext();
 
@@ -16,10 +17,55 @@ const ShopContextProvider = (props) => {
   const [cartItems, setCartItems] = useState({});
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const navigate = useNavigate();
+  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
+  const { user } = useUser();
 
   const currency = "₹";
   const delivery_fee = 50;
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+
+  const getAuthToken = async () => {
+    if (!isLoaded || !isSignedIn) return "";
+
+    const clerkToken = await getToken();
+    if (clerkToken) {
+      setToken(clerkToken);
+      localStorage.setItem("token", clerkToken);
+    }
+    return clerkToken || "";
+  };
+
+  useEffect(() => {
+    let isActive = true;
+
+    const syncClerkSession = async () => {
+      if (!isLoaded) return;
+
+      if (!isSignedIn) {
+        setToken("");
+        setCartItems({});
+        localStorage.removeItem("token");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userName");
+        return;
+      }
+
+      await getAuthToken();
+      if (!isActive) return;
+
+      const fullName = user?.fullName || user?.username || "Customer";
+      const email = user?.primaryEmailAddress?.emailAddress || "";
+
+      if (fullName) localStorage.setItem("userName", fullName);
+      if (email) localStorage.setItem("userEmail", email);
+    };
+
+    syncClerkSession();
+
+    return () => {
+      isActive = false;
+    };
+  }, [getToken, isLoaded, isSignedIn, user]);
 
   // ✅ Fetch products with pagination
   const fetchProducts = async (page = 1, sort = "") => {
@@ -79,8 +125,11 @@ const ShopContextProvider = (props) => {
   // ✅ Fetch cart from MongoDB
   const fetchCartFromDB = async () => {
     try {
+      const authToken = await getAuthToken();
+      if (!authToken) return;
+
       const res = await axios.get(`${backendUrl}/api/user/cart`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       });
       if (res.data.success) {
         setCartItems(res.data.cartData || {});
@@ -140,9 +189,10 @@ const ShopContextProvider = (props) => {
     setCartItems(cartData);
 
     try {
+      const authToken = await getAuthToken();
       await axios.post(`${backendUrl}/api/user/cart/add`,
         { itemId, size },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
       toast.success("Item Added To The Cart");
     } catch (error) {
@@ -166,9 +216,10 @@ const ShopContextProvider = (props) => {
     setCartItems(cartData);
 
     try {
+      const authToken = await getAuthToken();
       await axios.post(`${backendUrl}/api/user/cart/update`,
         { itemId, size, quantity },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
     } catch (error) {
       console.error("Failed to update cart", error);
@@ -179,8 +230,9 @@ const ShopContextProvider = (props) => {
   const clearCart = async () => {
     setCartItems({});
     try {
+      const authToken = await getAuthToken();
       await axios.post(`${backendUrl}/api/user/cart/clear`, {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
     } catch (error) {
       console.error("Failed to clear cart", error);
@@ -219,12 +271,15 @@ const ShopContextProvider = (props) => {
   };
 
   // ✅ Logout
-  const logout = () => {
+  const logout = async () => {
     setCartItems({});
     setToken('');
     localStorage.removeItem('token');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
+    if (isSignedIn) {
+      await signOut();
+    }
     navigate('/login');
   };
 
@@ -251,6 +306,10 @@ const ShopContextProvider = (props) => {
     navigate,
     token,
     setToken,
+    isAuthLoaded: isLoaded,
+    isSignedIn: !!isSignedIn,
+    user,
+    getAuthToken,
     login,
     logout,
     fetchCartFromDB,

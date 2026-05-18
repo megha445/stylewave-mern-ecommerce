@@ -15,9 +15,15 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    clerkId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
     password: {
       type: String,
-      required: true,
+      required: false,
     },
 
     // ✅ Removed role - users are just customers

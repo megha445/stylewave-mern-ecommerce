@@ -10,6 +10,7 @@ import {
 import protect from "../middleware/authMiddleware.js";
 import adminAuth from "../middleware/adminAuth.js";
 import sellerAuth from "../middleware/sellerAuth.js";
+import { mutationLimiter } from "../middleware/rateLimiters.js";
 
 /**
  * @swagger
@@ -141,12 +142,12 @@ const reviewRouter = express.Router();
 reviewRouter.get("/product/:productId", getProductReviews);
 
 // ✅ User routes - Protected
-reviewRouter.post("/add", protect, addReview);
+reviewRouter.post("/add", mutationLimiter, protect, addReview);
 reviewRouter.get("/can-review/:productId", protect, canUserReview);
 
 // ✅ Admin routes
 reviewRouter.get("/admin/all", adminAuth, getAllReviews);
-reviewRouter.delete("/admin/delete/:reviewId", adminAuth, deleteReview);
+reviewRouter.delete("/admin/delete/:reviewId", mutationLimiter, adminAuth, deleteReview);
 
 // ✅ Seller routes
 reviewRouter.get("/seller/product/:productId", sellerAuth, getSellerProductReviews);
