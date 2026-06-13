@@ -74,7 +74,7 @@ const handleCheckout = async () => {
           const productData = products.find((product) => product._id === item._id);
           if (!productData) return null;
           return (
-            <div key={index} className='grid py-4 text-gray-700 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4'>
+            <div key={`${item._id}-${item.size}`} className='grid py-4 text-gray-700 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4'>
               <div className='flex items-start gap-6'>
                 <img className='w-16 sm:w-20' src={productData.image[0]} alt="Photo" />
                 <div>
@@ -88,11 +88,14 @@ const handleCheckout = async () => {
                 </div>
               </div>
               <input
-                onChange={(e) => e.target.value === '' || e.target.value === '0' ? null : updateQuantity(item._id, item.size, Number(e.target.value))} 
+                onChange={(e) => {
+                  if (e.target.value === '') return;
+                  updateQuantity(item._id, item.size, Number(e.target.value));
+                }}
                 className='px-1 py-1 border max-w-10 sm:max-w-20 sm:px-2' 
                 type="number" 
                 min={1} 
-                defaultValue={item.quantity} 
+                value={item.quantity} 
               />
               <img 
                 onClick={() => updateQuantity(item._id, item.size, 0)} 
