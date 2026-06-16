@@ -16,9 +16,8 @@ const List = ({ token }) => {
 
   const fetchListProducts = async () => {
     try {
-      const adminToken = localStorage.getItem("adminToken");
       const response = await axios.get(`${backendUrl}/api/product/list`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.data.success) {
         setAllProducts(response.data.products);
@@ -41,7 +40,7 @@ const List = ({ token }) => {
       const response = await axios.post(
         `${backendUrl}/api/product/remove`,
         { id },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.success) {
@@ -72,7 +71,7 @@ const List = ({ token }) => {
       const response = await axios.put(
         `${backendUrl}/api/product/suspend/${id}`,
         {},
-        { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
         toast.success(response.data.message);
@@ -91,7 +90,7 @@ const List = ({ token }) => {
       const response = await axios.put(
         `${backendUrl}/api/product/unsuspend/${id}`,
         {},
-        { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
         toast.success(response.data.message);
