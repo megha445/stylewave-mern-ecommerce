@@ -41,7 +41,7 @@ const Add = ({ token }) => {
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         }
