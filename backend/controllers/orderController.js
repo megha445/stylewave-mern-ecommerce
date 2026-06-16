@@ -188,6 +188,9 @@ export const cancelOrder = async (req, res) => {
       order.razorpay_payment_id;
 
     if (isRazorpayPaid) {
+      console.log("Attempting refund for:", order.razorpay_payment_id);
+      console.log("Refund amount:", order.totalPrice * 100);
+      console.log("Razorpay configured:", isRazorpayConfigured());
       if (!isRazorpayConfigured()) {
         return res.status(503).json({
           message: "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.",
@@ -198,7 +201,7 @@ export const cancelOrder = async (req, res) => {
         const refund = await razorpayInstance.payments.refund(
           order.razorpay_payment_id,
           {
-            amount: order.totalPrice * 100,
+            amount: Math.round(order.totalPrice * 100),
             speed: "optimum",
           }
         );
@@ -208,6 +211,8 @@ export const cancelOrder = async (req, res) => {
         order.refundAmount = order.totalPrice;
         order.paymentStatus = "REFUND_PENDING";
       } catch (refundError) {
+        console.error("Refund error full:", refundError); // 👈 already have this
+        console.error("Refund error details:", JSON.stringify(refundError));
         console.error("Refund error:", refundError);
         return res.status(500).json({
           message: "Failed to process refund. Please contact support.",
