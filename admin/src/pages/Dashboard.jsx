@@ -20,16 +20,14 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 
 const COLORS = ["#4ade80", "#60a5fa", "#facc15", "#f87171", "#a78bfa"];
 
-const Dashboard = ({ token, userRole }) => { // ✅ Add userRole prop
+const Dashboard = ({ token }) => { // ✅ Add userRole prop
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
         // ✅ Use different endpoint based on role
-        const endpoint = userRole === "seller" 
-          ? `${backendUrl}/api/seller/orders/dashboard`
-          : `${backendUrl}/api/orders/admin/dashboard`;
+        const endpoint = `${backendUrl}/api/orders/admin/dashboard`;
 
         const res = await axios.get(endpoint, {
           headers: {
@@ -49,7 +47,7 @@ const Dashboard = ({ token, userRole }) => { // ✅ Add userRole prop
     };
 
     fetchDashboard();
-  }, [token, userRole]);
+  }, [token]);
 
   if (!stats) {
     return (
@@ -61,9 +59,7 @@ const Dashboard = ({ token, userRole }) => { // ✅ Add userRole prop
 
   return (
     <div>
-      <h2 className="mb-6 text-2xl font-bold">
-        {userRole === "seller" ? "Seller" : "Admin"} Dashboard
-      </h2>
+      <h2 className="mb-6 text-2xl font-bold">Admin Dashboard</h2>
 
       <AIAssistantPanel
         title="Admin Operations Helper"
@@ -80,11 +76,7 @@ const Dashboard = ({ token, userRole }) => { // ✅ Add userRole prop
       {/* ================= SUMMARY CARDS ================= */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <Card title="Total Orders" value={stats.totalOrders} />
-        {userRole === "seller" ? (
-          <Card title="Total Products" value={stats.totalProducts} />
-        ) : (
-          <Card title="Total Users" value={stats.totalUsers} />
-        )}
+        <Card title="Total Users" value={stats.totalUsers} />
         <Card title="Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} />
         <Card
           title="Cancelled Orders"
