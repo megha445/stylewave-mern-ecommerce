@@ -20,7 +20,7 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 
 const COLORS = ["#4ade80", "#60a5fa", "#facc15", "#f87171", "#a78bfa"];
 
-const Dashboard = ({ token }) => { // ✅ Add userRole prop
+const Dashboard = ({ token }) => { 
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
