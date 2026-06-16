@@ -180,16 +180,16 @@ const Edit = () => {
           </div>
 
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Upload New Images (Optional)</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="flex flex-wrap gap-2 sm:gap-4">
             {[
               { state: image1, setter: setImage1, id: "image1" },
               { state: image2, setter: setImage2, id: "image2" },
               { state: image3, setter: setImage3, id: "image3" },
               { state: image4, setter: setImage4, id: "image4" },
             ].map((img, index) => (
-              <label key={img.id} htmlFor={img.id} className="cursor-pointer">
+              <label key={img.id} htmlFor={img.id} className="w-32 cursor-pointer sm:w-36 md:w-40">
                 <img
-                  className="w-full h-24 border-2 border-gray-300 rounded-lg hover:border-blue-500"
+                  className="object-cover w-full h-24 border-2 border-gray-300 rounded-lg hover:border-blue-500"
                   src={
                     !img.state
                       ? assets.upload_area

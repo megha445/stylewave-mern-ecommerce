@@ -392,7 +392,18 @@ productRouter.put("/approve/:productId", mutationLimiter, adminAuth, approveProd
 productRouter.put("/reject/:productId", mutationLimiter, adminAuth, rejectProduct);
 productRouter.post("/remove", mutationLimiter, adminAuth, removeProduct);
 productRouter.get("/single/:id", adminAuth, getSingleProduct);
-productRouter.put("/update/:id", mutationLimiter, adminAuth, updateProduct);
+productRouter.put(
+  "/update/:id",
+  mutationLimiter,
+  adminAuth,
+  upload.fields([
+    { name: "image1", maxCount: 1 },
+    { name: "image2", maxCount: 1 },
+    { name: "image3", maxCount: 1 },
+    { name: "image4", maxCount: 1 },
+  ]),
+  updateProduct
+);
 productRouter.get("/search", searchProducts);
 productRouter.put("/suspend/:id", mutationLimiter, adminAuth, suspendProduct);
 productRouter.put("/unsuspend/:id", mutationLimiter, adminAuth, unsuspendProduct);

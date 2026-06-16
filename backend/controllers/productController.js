@@ -487,14 +487,38 @@ const updateProduct = async (req, res) => {
     }
 
     const oldStock = product.stock;
+    let imageUrls = product.image;
+
+    if (req.files) {
+      const image1 = req.files?.image1?.[0];
+      const image2 = req.files?.image2?.[0];
+      const image3 = req.files?.image3?.[0];
+      const image4 = req.files?.image4?.[0];
+
+      const productImages = [image1, image2, image3, image4].filter(
+        (image) => image !== undefined
+      );
+
+      if (productImages.length > 0) {
+        imageUrls = await Promise.all(
+          productImages.map(async (image) => {
+            const result = await cloudinary.uploader.upload(image.path, {
+              resource_type: "image",
+            });
+            return result.secure_url;
+          })
+        );
+      }
+    }
 
     product.name = req.body.name;
     product.description = req.body.description;
-    product.price = req.body.price;
+    product.price = Number(req.body.price);
     product.category = req.body.category;
     product.subCategory = req.body.subCategory;
-    product.bestSeller = req.body.bestSeller;
-    product.stock = req.body.stock;
+    product.sizes = req.body.sizes ? JSON.parse(req.body.sizes) : product.sizes;
+    product.stock = Number(req.body.stock);
+    product.image = imageUrls;
 
     await product.save();
 

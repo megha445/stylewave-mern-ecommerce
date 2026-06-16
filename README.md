@@ -62,7 +62,7 @@ A full-stack multi-vendor ecommerce platform built with the MERN stack, Socket.I
 - Tailwind CSS
 - React Router
 - Axios
-- Recharts 
+- Recharts
 - React Toastify
 
 ### Backend
@@ -159,13 +159,38 @@ cd seller && npm run dev
 
 ---
 
+## Docker Setup
+
+The project includes Dockerfiles for the backend, customer app, admin app, and seller app, plus a root `docker-compose.yml` for local multi-service setup.
+
+To build and run the full stack with MongoDB and Redis:
+
+```bash
+docker compose up --build
+```
+
+Docker local URLs:
+
+| Service | URL |
+| --- | --- |
+| Customer frontend | `http://localhost:5173` |
+| Admin dashboard | `http://localhost:5174` |
+| Seller dashboard | `http://localhost:5175` |
+| Backend API | `http://localhost:4000` |
+| MongoDB | `mongodb://localhost:27017` |
+| Redis | `redis://localhost:6379` |
+
+For Clerk, Cloudinary, Razorpay, email, and AI features, pass the required environment variables through your shell or a local compose-compatible `.env` file.
+
+---
+
 ## Default Admin Account
 
 To create a local default admin:
 
 ```bash
 cd backend
-npm run createAdmin.js
+npm run create-admin
 ```
 
 Default credentials:
@@ -240,6 +265,22 @@ Full documentation is available at `http://localhost:4000/api-docs`.
 
 ---
 
+## CI/CD
+
+The repository includes a GitHub Actions workflow at `.github/workflows/ci.yml`.
+
+On every push or pull request to `main`, it runs:
+
+- backend dependency install and JavaScript syntax checks
+- customer frontend build
+- admin dashboard build
+- seller dashboard build
+- Docker image build checks for all four apps
+
+This verifies that the project can be installed, built, and containerized before changes are merged or published.
+
+---
+
 ## Environment Variables
 
 ### Backend
@@ -299,7 +340,7 @@ A scheduled job calculates top products using recent sales, ratings, review coun
 ## Future Improvements
 
 - Add automated tests for backend APIs and frontend flows
-- Add Docker and CI/CD setup
+- Add production deployment workflows
 - Replace temporary-password email flows with tokenized reset links
 - Move auth tokens from localStorage to secure cookie-based handling
 - Add richer deployment documentation and screenshots
