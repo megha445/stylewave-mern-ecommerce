@@ -110,7 +110,7 @@ const List = ({ token }) => {
     return () => {
       socket.off("product:changed", fetchListProducts);
     };
-  }, []);
+  }, [token]);
 
   const visibleProducts = allProducts.filter(p => p.status !== "Pending");
   const platformProducts = visibleProducts.filter(p => p.ownedBy === "platform" || !p.sellerId);
