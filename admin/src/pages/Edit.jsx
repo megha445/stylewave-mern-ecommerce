@@ -68,6 +68,12 @@ const Edit = ({ token }) => {
   const updateProduct = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    console.log("name:", name);
+    console.log("description:", description);
+    console.log("price:", price);
+    console.log("category:", category);
+    console.log("subCategory:", subCategory);
+    console.log("stock:", stock);
 
     try {
       const formData = new FormData();

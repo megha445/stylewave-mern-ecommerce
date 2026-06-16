@@ -472,6 +472,8 @@ const getSingleProduct = async (req, res) => {
 // ============= UPDATE PRODUCT =============
 const updateProduct = async (req, res) => {
   try {
+    console.log("req.body:", req.body); // 👈 debug line
+    console.log("req.files:", req.files);
     const product = await productModel.findById(req.params.id);
 
     if (!product) {
