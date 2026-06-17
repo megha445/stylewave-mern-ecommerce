@@ -18,7 +18,7 @@ const PendingProducts = ({ token }) => {
     try {
       const response = await axios.get(`${backendUrl}/api/product/pending`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -49,7 +49,7 @@ const PendingProducts = ({ token }) => {
         {},
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -81,7 +81,7 @@ const PendingProducts = ({ token }) => {
         { reason: rejectionReason },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
