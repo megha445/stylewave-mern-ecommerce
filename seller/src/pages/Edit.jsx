@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 import { useParams, useNavigate } from "react-router-dom";
 
-const Edit = () => {
+const Edit = ({token}) => {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -27,8 +27,6 @@ const Edit = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const token = localStorage.getItem("sellerToken");
-        
         // ✅ FIX: Use seller endpoint
         const res = await axios.get(`${backendUrl}/api/seller/product/list`, {
           headers: {
@@ -87,7 +85,7 @@ const Edit = () => {
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("sellerToken")}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         }

@@ -4,7 +4,7 @@ import { backendUrl } from "../App";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 
-const SellerAdd = () => {
+const SellerAdd = ({token}) => {
   const [image1, setImage1] = useState(null);
   const [image2, setImage2] = useState(null);
   const [image3, setImage3] = useState(null);
@@ -42,7 +42,6 @@ const SellerAdd = () => {
     e.preventDefault();
 
     try {
-      const token = localStorage.getItem("sellerToken");
       const files = [image1, image2, image3, image4].filter(Boolean);
       if (files.length === 0) {
         toast.error("Please upload at least 1 image");

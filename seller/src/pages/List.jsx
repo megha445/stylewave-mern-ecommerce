@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { connectSocket } from "../lib/socket";
 
-const List = () => {
+const List = ({token}) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All"); // ✅ NEW
@@ -14,7 +14,6 @@ const List = () => {
 
   const fetchProducts = async () => {
     try {
-      const token = localStorage.getItem("sellerToken");
       
       const res = await axios.get(`${backendUrl}/api/seller/product/list`, {
         headers: {
@@ -41,7 +40,6 @@ const List = () => {
     }
 
     try {
-      const token = localStorage.getItem("sellerToken");
       
       const res = await axios.delete(
         `${backendUrl}/api/seller/product/delete/${id}`,
