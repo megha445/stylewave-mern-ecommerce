@@ -9,6 +9,7 @@ const List = ({ token }) => {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("platform");
+  const [actionLoading, setActionLoading] = useState("");
   const navigate = useNavigate();
 
   const [platformSearch, setPlatformSearch] = useState("");
@@ -36,6 +37,7 @@ const List = ({ token }) => {
   const handleRemove = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
 
+    setActionLoading(`delete-${id}`);
     try {
       const response = await axios.post(
         `${backendUrl}/api/product/remove`,
@@ -53,7 +55,7 @@ const List = ({ token }) => {
             `❌ ${response.data.message}\n\nDo you want to SUSPEND this product instead?\n\n✅ Suspending will:\n- Hide product from store\n- Remove from all user carts\n- Keep existing orders running`
           );
           if (confirmSuspend) {
-            handleSuspend(id);
+            await handleSuspend(id);
           }
         } else {
           toast.error(response.data.message);
@@ -62,11 +64,14 @@ const List = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Failed to remove product");
+    } finally {
+      setActionLoading("");
     }
   };
 
   // ✅ Handle Suspend
   const handleSuspend = async (id) => {
+    setActionLoading(`suspend-${id}`);
     try {
       const response = await axios.put(
         `${backendUrl}/api/product/suspend/${id}`,
@@ -81,11 +86,14 @@ const List = ({ token }) => {
       }
     } catch (error) {
       toast.error("Failed to suspend product");
+    } finally {
+      setActionLoading("");
     }
   };
 
   // ✅ Handle Unsuspend
   const handleUnsuspend = async (id) => {
+    setActionLoading(`unsuspend-${id}`);
     try {
       const response = await axios.put(
         `${backendUrl}/api/product/unsuspend/${id}`,
@@ -100,6 +108,8 @@ const List = ({ token }) => {
       }
     } catch (error) {
       toast.error("Failed to unsuspend product");
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -141,7 +151,14 @@ const List = ({ token }) => {
   };
 
   // ✅ Render product card
-  const renderProductCard = (item) => (
+  const renderProductCard = (item) => {
+    // ✅ NEW: true while ANY action (delete/suspend/unsuspend) is running for this product
+    const isDeleting = actionLoading === `delete-${item._id}`;
+    const isSuspending = actionLoading === `suspend-${item._id}`;
+    const isUnsuspending = actionLoading === `unsuspend-${item._id}`;
+    const isProductBusy = isDeleting || isSuspending || isUnsuspending;
+
+    return (
     <div
       key={item._id}
       className={`p-4 mb-4 bg-white rounded shadow-sm border-l-4 ${
@@ -219,7 +236,8 @@ const List = ({ token }) => {
           {item.status !== "Removed" && (
             <button
               onClick={() => navigate(`/edit/${item._id}`)}
-              className="px-3 py-1.5 text-sm text-white bg-blue-500 rounded hover:bg-blue-600"
+              disabled={isProductBusy}
+              className="px-3 py-1.5 text-sm text-white bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Edit
             </button>
@@ -229,9 +247,10 @@ const List = ({ token }) => {
           {item.status !== "Removed" && (
             <button
               onClick={() => handleRemove(item._id)}
-              className="px-3 py-1.5 text-sm text-white bg-red-500 rounded hover:bg-red-600"
+              disabled={isProductBusy}
+              className="px-3 py-1.5 text-sm text-white bg-red-500 rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </button>
           )}
 
@@ -239,24 +258,27 @@ const List = ({ token }) => {
           {item.status === "Approved" && (
             <button
               onClick={() => handleSuspend(item._id)}
-              className="px-3 py-1.5 text-sm text-white bg-orange-500 rounded hover:bg-orange-600"
+              disabled={isProductBusy}
+              className="px-3 py-1.5 text-sm text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Suspend
+              {isSuspending ? "Suspending..." : "Suspend"}
             </button>
           )}
 
           {item.status === "Suspended" && (
             <button
               onClick={() => handleUnsuspend(item._id)}
-              className="px-3 py-1.5 text-sm text-white bg-green-500 rounded hover:bg-green-600"
+              disabled={isProductBusy}
+              className="px-3 py-1.5 text-sm text-white bg-green-500 rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Unsuspend
+              {isUnsuspending ? "Unsuspending..." : "Unsuspend"}
             </button>
           )}
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   if (loading) {
     return <div className="text-center py-10">Loading...</div>;

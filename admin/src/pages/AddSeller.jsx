@@ -11,6 +11,7 @@ const AddSeller = ({ token }) => {
     shopName: "",
     phone: "",
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const onChangeHandler = (e) => {
     const { name, value } = e.target;
@@ -19,6 +20,7 @@ const AddSeller = ({ token }) => {
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
 
     try {
       const response = await axios.post(
@@ -47,6 +49,8 @@ const AddSeller = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Failed to add seller");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -141,9 +145,10 @@ const AddSeller = ({ token }) => {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full px-6 py-3 text-white bg-black rounded-md hover:bg-gray-800 transition-colors font-semibold"
+            disabled={submitting}
+            className="w-full px-6 py-3 text-white bg-black rounded-md hover:bg-gray-800 transition-colors font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            Add Seller
+            {submitting ? "Adding Seller..." : "Add Seller"}
           </button>
         </form>
       </div>

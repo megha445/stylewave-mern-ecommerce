@@ -17,9 +17,11 @@ const Add = ({ token }) => {
   const [price, setPrice] = useState("");
   const [sizes, setSizes] = useState([]);
   const [stock, setStock] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const formData = new FormData();
 
@@ -56,6 +58,8 @@ const Add = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error("Something went wrong");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -243,14 +247,16 @@ const Add = ({ token }) => {
           <div className="flex gap-4 justify-center pt-4">
             <button
               type="submit"
-              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+              disabled={submitting}
+              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
-              Add Product
+              {submitting ? "Adding..." : "Add Product"}
             </button>
             <button
               type="button"
               onClick={resetForm}
-              className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-md"
+              disabled={submitting}
+              className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               Reset Form
             </button>

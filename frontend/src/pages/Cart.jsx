@@ -7,6 +7,8 @@ import CartTotal from '../components/CartTotal';
 const Cart = () => {
   const { products, currency, cartItems, updateQuantity, navigate, backendUrl, token, getAuthToken } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [updatingItem, setUpdatingItem] = useState("");
 
   // Cart.jsx
 const handleCheckout = async () => {
@@ -15,6 +17,7 @@ const handleCheckout = async () => {
     navigate('/login');
     return;
   }
+  setCheckingOut(true);
   try {
     const authToken = await getAuthToken();
     // Build cart items array
@@ -43,6 +46,8 @@ const handleCheckout = async () => {
     navigate('/place-order'); // ✅ proceed only if reservation succeeded
   } catch (error) {
     alert('Something went wrong. Please try again.');
+  } finally {
+    setCheckingOut(false);
   }
 };
 
@@ -64,6 +69,16 @@ const handleCheckout = async () => {
 
   const isCartEmpty = cartData.length === 0;
 
+  const handleQuantityChange = async (itemId, size, quantity) => {
+    const itemKey = `${itemId}-${size}`;
+    setUpdatingItem(itemKey);
+    try {
+      await updateQuantity(itemId, size, quantity);
+    } finally {
+      setUpdatingItem("");
+    }
+  };
+
   return (
     <div className='border-t pt-14'>
       <div className='mb-3 text-2xl'>
@@ -73,6 +88,8 @@ const handleCheckout = async () => {
         {cartData.map((item, index) => {
           const productData = products.find((product) => product._id === item._id);
           if (!productData) return null;
+          const itemKey = `${item._id}-${item.size}`;
+          const isUpdating = updatingItem === itemKey;
           return (
             <div key={`${item._id}-${item.size}`} className='grid py-4 text-gray-700 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4'>
               <div className='flex items-start gap-6'>
@@ -90,19 +107,27 @@ const handleCheckout = async () => {
               <input
                 onChange={(e) => {
                   if (e.target.value === '') return;
-                  updateQuantity(item._id, item.size, Number(e.target.value));
+                  handleQuantityChange(item._id, item.size, Number(e.target.value));
                 }}
-                className='px-1 py-1 border max-w-10 sm:max-w-20 sm:px-2' 
+                disabled={isUpdating}
+                className='px-1 py-1 border max-w-10 sm:max-w-20 sm:px-2 disabled:bg-gray-100 disabled:cursor-not-allowed' 
                 type="number" 
                 min={1} 
                 value={item.quantity} 
               />
-              <img 
-                onClick={() => updateQuantity(item._id, item.size, 0)} 
-                className='w-4 mr-4 cursor-pointer sm:w-5' 
-                src={assets.bin_icon} 
-                alt="Remove" 
-              />
+              <button
+                type="button"
+                onClick={() => handleQuantityChange(item._id, item.size, 0)}
+                disabled={isUpdating}
+                className='w-5 mr-4 disabled:opacity-50 disabled:cursor-not-allowed'
+                aria-label={isUpdating ? "Removing item" : "Remove item"}
+              >
+                <img 
+                  className='w-4 sm:w-5' 
+                  src={assets.bin_icon} 
+                  alt={isUpdating ? "Removing..." : "Remove"} 
+                />
+              </button>
             </div>
           );
         })}
@@ -113,10 +138,10 @@ const handleCheckout = async () => {
           <div className='w-full text-end'>
           <button
               onClick={handleCheckout}  // ✅ changed from () => navigate('/place-order')
-              disabled={isCartEmpty}
-              className={`px-8 py-3 my-8 text-sm text-white bg-black ${isCartEmpty ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isCartEmpty || checkingOut}
+              className={`px-8 py-3 my-8 text-sm text-white bg-black ${(isCartEmpty || checkingOut) ? 'opacity-50 cursor-not-allowed' : ''}`}
            >
-              PROCEED TO CHECKOUT
+              {checkingOut ? "RESERVING..." : "PROCEED TO CHECKOUT"}
             </button>
           </div>
         </div>

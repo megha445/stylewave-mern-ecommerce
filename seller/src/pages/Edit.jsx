@@ -22,6 +22,7 @@ const Edit = ({token}) => {
   const [price, setPrice] = useState("");
   const [sizes, setSizes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [productStatus, setProductStatus] = useState("");
 
   useEffect(() => {
@@ -64,6 +65,7 @@ const Edit = ({token}) => {
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
 
     try {
       const formData = new FormData();
@@ -100,6 +102,8 @@ const Edit = ({token}) => {
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.message || "Failed to update product");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -306,9 +310,10 @@ const Edit = ({token}) => {
         <div className="flex gap-4">
           <button
             type="submit"
-            className="flex-1 px-6 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300"
+            disabled={submitting}
+            className="flex-1 px-6 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
-            Update Product
+            {submitting ? "Updating..." : "Update Product"}
           </button>
           <button
             type="button"

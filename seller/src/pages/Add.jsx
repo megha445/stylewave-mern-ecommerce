@@ -18,6 +18,7 @@ const SellerAdd = ({token}) => {
   const [sizes, setSizes] = useState([]);
   const [bestSeller, setBestSeller] = useState(false);
   const [stock, setStock] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const buildProductFormData = (files) => {
     const formData = new FormData();
@@ -40,11 +41,13 @@ const SellerAdd = ({token}) => {
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
 
     try {
       const files = [image1, image2, image3, image4].filter(Boolean);
       if (files.length === 0) {
         toast.error("Please upload at least 1 image");
+        setSubmitting(false);
         return;
       }
 
@@ -59,6 +62,7 @@ const SellerAdd = ({token}) => {
 
         if (!sigRes.data.success) {
           toast.error(sigRes.data.message || "Failed to prepare image upload");
+          setSubmitting(false);
           return;
         }
 
@@ -134,6 +138,8 @@ const SellerAdd = ({token}) => {
     } catch (err) {
       console.error("Full error:", err);
       toast.error(err.response?.data?.message || "Failed to add product");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -322,14 +328,16 @@ const SellerAdd = ({token}) => {
           <div className="flex gap-4 justify-center pt-4">
             <button
               type="submit"
-              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+              disabled={submitting}
+              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
-              Add Product
+              {submitting ? "Adding..." : "Add Product"}
             </button>
             <button
               type="button"
               onClick={resetForm}
-              className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-md"
+              disabled={submitting}
+              className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               Reset Form
             </button>

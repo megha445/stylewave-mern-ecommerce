@@ -56,7 +56,7 @@ const orderSchema = new mongoose.Schema({
   // ✅ UPDATED: Added REFUNDED and REFUND_PENDING
   paymentStatus: {
     type: String,
-    enum: ["PENDING", "PAID", "FAILED", "REFUNDED", "REFUND_PENDING"],
+    enum: ["PENDING", "PAID", "FAILED", "REFUNDED", "REFUND_PENDING", "INITIATED"],
     default: "PENDING",
   },
   

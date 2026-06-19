@@ -8,9 +8,11 @@ const Login = ({ setToken }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
       const response = await axios.post(
@@ -35,10 +37,12 @@ const Login = ({ setToken }) => {
         window.location.reload();
       } else {
         toast.error(response.data.message);
+        setLoading(false);
       }
     } catch (error) {
       console.error(error);
       toast.error("Invalid admin credentials");
+      setLoading(false);
     }
   };
 
@@ -86,10 +90,11 @@ const Login = ({ setToken }) => {
 </div>
 
           <button
-            className="w-full px-4 py-2 mt-5 text-white bg-black rounded-md"
+            className="w-full px-4 py-2 mt-5 text-white bg-black rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed"
             type="submit"
+            disabled={loading}
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>

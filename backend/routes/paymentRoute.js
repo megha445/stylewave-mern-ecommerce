@@ -29,7 +29,7 @@ import { paymentLimiter } from "../middleware/rateLimiters.js";
  * @swagger
  * /api/payment/razorpay/create-order:
  *   post:
- *     summary: Create Razorpay payment order
+ *     summary: Create Razorpay payment order (also creates the local order record in an INITIATED state)
  *     tags: [Payment]
  *     security:
  *       - bearerAuth: []
@@ -39,7 +39,7 @@ import { paymentLimiter } from "../middleware/rateLimiters.js";
  *         application/json:
  *           schema:
  *             type: object
- *             required: [amount, currency]
+ *             required: [amount, currency, address]
  *             properties:
  *               amount:
  *                 type: number
@@ -50,6 +50,8 @@ import { paymentLimiter } from "../middleware/rateLimiters.js";
  *               receipt:
  *                 type: string
  *                 example: "receipt_123"
+ *               address:
+ *                 type: object
  *               orderItems:
  *                 type: array
  *                 items:
@@ -68,17 +70,19 @@ import { paymentLimiter } from "../middleware/rateLimiters.js";
  * @swagger
  * /api/payment/razorpay/verify:
  *   post:
- *     summary: Verify Razorpay payment and create order
+ *     summary: Verify Razorpay payment signature and mark the matching order as paid
+ *     description: >
+ *       No authentication required — the Razorpay signature itself proves
+ *       the payment is genuine. The order is looked up by razorpay_order_id,
+ *       which was created earlier in create-order.
  *     tags: [Payment]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [razorpay_order_id, razorpay_payment_id, razorpay_signature, orderItems, totalPrice]
+ *             required: [razorpay_order_id, razorpay_payment_id, razorpay_signature]
  *             properties:
  *               razorpay_order_id:
  *                 type: string
@@ -86,28 +90,9 @@ import { paymentLimiter } from "../middleware/rateLimiters.js";
  *                 type: string
  *               razorpay_signature:
  *                 type: string
- *               orderItems:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     productId:
- *                       type: string
- *                     name:
- *                       type: string
- *                     price:
- *                       type: number
- *                     quantity:
- *                       type: number
- *                     size:
- *                       type: string
- *               totalPrice:
- *                 type: number
- *               address:
- *                 type: object
  *     responses:
  *       200:
- *         description: Payment verified and order created
+ *         description: Payment verified and order confirmed
  */
 
 const paymentRouter = express.Router();
@@ -115,11 +100,14 @@ const paymentRouter = express.Router();
 // Get Razorpay key for frontend
 paymentRouter.get("/razorpay/key", getRazorpayKey);
 
-// Create Razorpay order
+// Create Razorpay order — still requires a valid token, this runs before payment
 paymentRouter.post("/razorpay/create-order", paymentLimiter, protect, createRazorpayOrder);
 
-// Verify payment and create order
-paymentRouter.post("/razorpay/verify", paymentLimiter, protect, verifyRazorpayPayment);
+// ✅ CHANGED: verify no longer needs `protect`. The order is found via
+// razorpay_order_id and the payment is authenticated by its signature,
+// not by the caller's session token — so an expired token during checkout
+// can no longer cause a paid-but-unrecorded order.
+paymentRouter.post("/razorpay/verify", paymentLimiter, verifyRazorpayPayment);
 
 
 export default paymentRouter;

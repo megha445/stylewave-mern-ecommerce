@@ -8,6 +8,7 @@ import { ShopContext } from "../context/ShopContext";
 const PlaceOrder = () => {
   const [method, setMethod] = useState("cod");
   const [razorpayKey, setRazorpayKey] = useState("");
+  const [placingOrder, setPlacingOrder] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -73,14 +74,15 @@ const PlaceOrder = () => {
 
     try {
       const token = await getAuthToken();
-// Get from context
-    const finalAmount = totalPrice + delivery_fee; // ✅ Add delivery fee
+      const finalAmount = totalPrice + delivery_fee; // ✅ Add delivery fee
 
-    console.log("💰 Cart Total:", totalPrice);
-    console.log("🚚 Delivery Fee:", delivery_fee);
-    console.log("💳 Final Amount:", finalAmount);
+      console.log("💰 Cart Total:", totalPrice);
+      console.log("🚚 Delivery Fee:", delivery_fee);
+      console.log("💳 Final Amount:", finalAmount);
 
-      // Create Razorpay order
+      // ✅ Create Razorpay order — this now also creates the local order
+      // record in the DB (status: INITIATED) while our token is still
+      // fresh. Note `address` is now sent here, not at verify time.
       const orderRes = await axios.post(
         `${backendUrl}/api/payment/razorpay/create-order`,
         {
@@ -88,6 +90,7 @@ const PlaceOrder = () => {
           currency: "INR",
           receipt: `receipt_${Date.now()}`,
           orderItems,
+          address: formData,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -111,19 +114,17 @@ const PlaceOrder = () => {
         order_id: order.id,
         handler: async function (response) {
           try {
-            // Verify payment
+            // ✅ Verify payment — only the three Razorpay signature fields
+            // are needed now. No auth token required: the order was
+            // already created above, and the signature itself proves the
+            // payment is genuine. This means even if checkout took a
+            // while and our token went stale, verification still works.
             const verifyRes = await axios.post(
               `${backendUrl}/api/payment/razorpay/verify`,
               {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                orderItems,
-                totalPrice: finalAmount,
-                address: formData,
-              },
-              {
-                headers: { Authorization: `Bearer ${token}` },
               }
             );
 
@@ -190,18 +191,21 @@ const PlaceOrder = () => {
 
   // ✅ Main Order Handler
   const placeOrderHandler = async () => {
+    setPlacingOrder(true);
     try {
       const token = await getAuthToken();
 
       if (!token) {
         alert("Please login first");
         navigate("/login");
+        setPlacingOrder(false);
         return;
       }
 
       // Validate form
       if (!formData.firstName || !formData.email || !formData.phone) {
         alert("Please fill in all required fields");
+        setPlacingOrder(false);
         return;
       }
 
@@ -229,6 +233,7 @@ const PlaceOrder = () => {
 
       if (orderItems.length === 0) {
         alert("Your cart is empty");
+        setPlacingOrder(false);
         return;
       }
 
@@ -241,10 +246,14 @@ const PlaceOrder = () => {
         await handleCODPayment(orderItems, totalPrice);
       } else if (method === "stripe") {
         alert("Stripe integration coming soon!");
+        setPlacingOrder(false);
       }
     } catch (error) {
       console.error("Order error:", error);
       alert("Failed to place order");
+      setPlacingOrder(false);
+    } finally {
+      setPlacingOrder(false);
     }
   };
 
@@ -408,9 +417,10 @@ const PlaceOrder = () => {
           <div className="w-full mt-8 text-end">
             <button
               onClick={placeOrderHandler}
-              className="px-16 py-3 text-sm text-white bg-black active:bg-gray-800"
+              disabled={placingOrder}
+              className="px-16 py-3 text-sm text-white bg-black active:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              PLACE ORDER
+              {placingOrder ? "PLACING ORDER..." : "PLACE ORDER"}
             </button>
           </div>
         </div>

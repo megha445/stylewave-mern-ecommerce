@@ -28,11 +28,14 @@ const emitOrderEvent = (eventName, order) => {
 };
 
 // ===============================
-// CREATE ORDER
+// CREATE ORDER (COD)
 // ===============================
 export const createOrder = async (req, res) => {
   try {
-    const { orderItems, totalPrice } = req.body;
+    // ✅ FIX: also read address and paymentMethod — previously these were sent
+    // by the frontend but silently dropped, so COD orders had no shipping
+    // address and no paymentMethod saved at all.
+    const { orderItems, totalPrice, address, paymentMethod } = req.body;
 
     // ✅ Input validation
     if (!orderItems || orderItems.length === 0) {
@@ -41,6 +44,10 @@ export const createOrder = async (req, res) => {
 
     if (!totalPrice || totalPrice <= 0) {
       return res.status(400).json({ success: false, message: "Invalid total price" });
+    }
+
+    if (!address) {
+      return res.status(400).json({ success: false, message: "Delivery address is required" });
     }
 
     // ✅ Validate each order item
@@ -97,6 +104,13 @@ export const createOrder = async (req, res) => {
       userId: req.user._id,
       orderItems: enrichedOrderItems,
       totalPrice,
+      address,
+      // ✅ FIX: paymentMethod is now actually saved. Defaults to "COD" since
+      // this route is the COD checkout path. Without this, cancelOrder's
+      // `order.paymentMethod === "COD"` cancellation-fee check could never
+      // be true for any order placed through here.
+      paymentMethod: paymentMethod || "COD",
+      paymentStatus: "PENDING",
     });
 
     // ✅ Release reservations — order is confirmed, stock already deducted

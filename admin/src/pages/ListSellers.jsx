@@ -7,6 +7,7 @@ const ListSellers = ({ token }) => {
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [actionLoading, setActionLoading] = useState("");
 
   const fetchSellers = async () => {
     try {
@@ -30,6 +31,7 @@ const ListSellers = ({ token }) => {
   };
 
   const toggleSellerStatus = async (id, currentStatus) => {
+    setActionLoading(`status-${id}`);
     try {
       const response = await axios.put(
         `${backendUrl}/api/seller/update/${id}`,
@@ -52,6 +54,8 @@ const ListSellers = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to update seller status");
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -59,6 +63,8 @@ const ListSellers = ({ token }) => {
     if (!window.confirm("Are you sure you want to delete this seller?")) {
       return;
     }
+
+    setActionLoading(`delete-${id}`);
 
     try {
       const response = await axios.delete(
@@ -79,6 +85,8 @@ const ListSellers = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete seller");
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -176,19 +184,23 @@ const ListSellers = ({ token }) => {
                         onClick={() =>
                           toggleSellerStatus(seller._id, seller.isActive)
                         }
-                        className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                        disabled={actionLoading === `status-${seller._id}`}
+                        className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${
                           seller.isActive
                             ? "bg-yellow-500 hover:bg-yellow-600 text-white"
                             : "bg-green-500 hover:bg-green-600 text-white"
                         }`}
                       >
-                        {seller.isActive ? "Deactivate" : "Activate"}
+                        {actionLoading === `status-${seller._id}`
+                          ? seller.isActive ? "Deactivating..." : "Activating..."
+                          : seller.isActive ? "Deactivate" : "Activate"}
                       </button>
                       <button
                         onClick={() => deleteSeller(seller._id)}
-                        className="px-4 py-2 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                        disabled={actionLoading === `delete-${seller._id}`}
+                        className="px-4 py-2 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors disabled:bg-red-300 disabled:cursor-not-allowed"
                       >
-                        Delete
+                        {actionLoading === `delete-${seller._id}` ? "Deleting..." : "Delete"}
                       </button>
                     </div>
                   </td>

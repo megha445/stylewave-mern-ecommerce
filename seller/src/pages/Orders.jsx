@@ -8,6 +8,7 @@ const Orders = ({ token }) => {
   const [orders, setOrders] = useState([]);
   const [rejectOrderId, setRejectOrderId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [actionLoading, setActionLoading] = useState("");
   const [searchTerm, setSearchTerm] = useState(""); // ✅ ADD THIS
 
   const fetchOrders = async () => {
@@ -57,6 +58,7 @@ const Orders = ({ token }) => {
 
   // ✅ UPDATE STATUS - SEQUENTIAL
   const updateStatus = async (orderId, newStatus) => {
+    setActionLoading(`status-${orderId}`);
     try {
       const res = await axios.put(
         `${backendUrl}/api/seller/orders/status/${orderId}`,
@@ -70,6 +72,8 @@ const Orders = ({ token }) => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to update");
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -79,6 +83,7 @@ const Orders = ({ token }) => {
       toast.error("Please provide rejection reason");
       return;
     }
+    setActionLoading(`reject-${orderId}`);
 
     try {
       const res = await axios.put(
@@ -95,6 +100,8 @@ const Orders = ({ token }) => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to reject");
+    } finally {
+      setActionLoading("");
     }
   };
 

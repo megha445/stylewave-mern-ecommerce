@@ -10,6 +10,7 @@ const Orders = ({ token }) => {
   const [cancelOrderId, setCancelOrderId] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [actionLoading, setActionLoading] = useState("");
   const fetchOrders = async () => {
     try {
       const res = await axios.get(`${backendUrl}/api/orders/admin/all`, {
@@ -109,6 +110,7 @@ const Orders = ({ token }) => {
   };
 
   const updateStatus = async (orderId, newStatus) => {
+    setActionLoading(`status-${orderId}`);
     try {
       const res = await axios.put(
         `${backendUrl}/api/orders/admin/status/${orderId}`,
@@ -124,6 +126,8 @@ const Orders = ({ token }) => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to update");
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -132,6 +136,8 @@ const Orders = ({ token }) => {
       toast.error("Please provide cancellation reason");
       return;
     }
+
+    setActionLoading(`cancel-${orderId}`);
 
     try {
       const res = await axios.put(
@@ -150,6 +156,8 @@ const Orders = ({ token }) => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to cancel");
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -160,6 +168,8 @@ const Orders = ({ token }) => {
   const renderOrder = (order) => {
     const nextStatus = getNextStatus(order.status);
     const isCancellable = canBeCancelled(order.status);
+    const isUpdatingStatus = actionLoading === `status-${order._id}`;
+    const isCancelling = actionLoading === `cancel-${order._id}`;
 
     return (
       <div
@@ -340,9 +350,10 @@ const Orders = ({ token }) => {
                 <>
                   <button
                     onClick={() => updateStatus(order._id, nextStatus)}
-                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-semibold shadow-md transition-all"
+                    disabled={isUpdatingStatus}
+                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-semibold shadow-md transition-all disabled:bg-blue-300 disabled:cursor-not-allowed"
                   >
-                    ✓ Mark as {nextStatus}
+                    {isUpdatingStatus ? "Updating..." : `Mark as ${nextStatus}`}
                   </button>
                   <span className="text-sm text-gray-600 font-medium">
                     {order.status} → {nextStatus}
@@ -375,9 +386,10 @@ const Orders = ({ token }) => {
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => cancelOrder(order._id)}
-                className="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 font-semibold"
+                disabled={isCancelling}
+                className="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 font-semibold disabled:bg-red-300 disabled:cursor-not-allowed"
               >
-                Confirm Cancellation
+                {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
               </button>
               <button
                 onClick={() => {

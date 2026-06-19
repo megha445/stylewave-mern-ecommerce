@@ -12,6 +12,7 @@ const Product = () => {
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('');
   const [size, setSize] = useState('');
+  const [addingToCart, setAddingToCart] = useState(false);
 
   const fetchProductData = async () => {
     products.map((item) => {
@@ -26,6 +27,15 @@ const Product = () => {
   useEffect(() => {
     fetchProductData();
   }, [productId, products]);
+
+  const handleAddToCart = async () => {
+    setAddingToCart(true);
+    try {
+      await addToCart(productData._id, size);
+    } finally {
+      setAddingToCart(false);
+    }
+  };
 
   return productData ? (
     <div className='pt-10 transition-opacity duration-500 ease-in border-t-2 opacity-100'>
@@ -102,10 +112,11 @@ const Product = () => {
             </div>
           </div>
           <button 
-            onClick={() => addToCart(productData._id, size)} 
-            className='px-8 py-3 text-sm text-white bg-black active:bg-gray-700'
+            onClick={handleAddToCart}
+            disabled={addingToCart}
+            className='px-8 py-3 text-sm text-white bg-black active:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed'
           >
-            ADD TO CART
+            {addingToCart ? "ADDING..." : "ADD TO CART"}
           </button>
           <hr className='mt-8 sm:w-4/5' />
           <div className='flex flex-col gap-1 mt-5 text-sm text-gray-500'>
