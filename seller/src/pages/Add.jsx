@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 
-const SellerAdd = ({token}) => {
+const SellerAdd = () => {
   const [image1, setImage1] = useState(null);
   const [image2, setImage2] = useState(null);
   const [image3, setImage3] = useState(null);
@@ -55,10 +54,7 @@ const SellerAdd = ({token}) => {
 
       try {
         // 1) Get signed Cloudinary upload params from backend
-        const sigRes = await axios.get(
-          `${backendUrl}/api/seller/upload/cloudinary-signature`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const sigRes = await api.get("/api/seller/upload/cloudinary-signature");
 
         if (!sigRes.data.success) {
           toast.error(sigRes.data.message || "Failed to prepare image upload");
@@ -92,15 +88,9 @@ const SellerAdd = ({token}) => {
           throw uploadError;
         }
 
-        const fallbackRes = await axios.post(
-          `${backendUrl}/api/seller/product/add`,
-          buildProductFormData(files),
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "multipart/form-data",
-            },
-          }
+        const fallbackRes = await api.post(
+          "/api/seller/product/add",
+          buildProductFormData(files)
         );
 
         if (fallbackRes.data.success) {
@@ -113,21 +103,17 @@ const SellerAdd = ({token}) => {
       }
 
       // 3) Send product data to backend (no multipart, only URLs)
-      const res = await axios.post(
-        `${backendUrl}/api/seller/product/add`,
-        {
-          name,
-          description,
-          category,
-          subCategory,
-          price,
-          sizes: JSON.stringify(sizes),
-          bestSeller,
-          stock: stock ? Number(stock) : 0,
-          imageUrls,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.post("/api/seller/product/add", {
+        name,
+        description,
+        category,
+        subCategory,
+        price,
+        sizes: JSON.stringify(sizes),
+        bestSeller,
+        stock: stock ? Number(stock) : 0,
+        imageUrls,
+      });
 
       if (res.data.success) {
         toast.success("Product added successfully");

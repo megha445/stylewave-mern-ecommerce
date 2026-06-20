@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { assets } from "../assets/assets";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 
-const Add = ({ token }) => {
+const Add = () => {
   const [image1, setImage1] = useState(null);
   const [image2, setImage2] = useState(null);
   const [image3, setImage3] = useState(null);
@@ -38,16 +37,7 @@ const Add = ({ token }) => {
       formData.append("sizes", JSON.stringify(sizes));
       formData.append("stock", stock ? Number(stock) : 0);
 
-      const response = await axios.post(
-        backendUrl + "/api/product/add",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await api.post("/api/product/add", formData);
 
       if (response.data.success) {
         toast.success(response.data.message);

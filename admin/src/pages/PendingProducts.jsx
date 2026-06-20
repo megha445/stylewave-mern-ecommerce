@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { backendUrl, currency } from "../App";
+import React, { useContext, useEffect, useState } from "react";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
-const PendingProducts = ({ token }) => {
+const PendingProducts = () => {
+  const { currency } = useContext(ShopContext);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -17,11 +18,7 @@ const PendingProducts = ({ token }) => {
   // =========================
   const fetchPendingProducts = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/product/pending`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get("/api/product/pending");
 
       if (response.data.success) {
         setPendingProducts(response.data.products);
@@ -46,15 +43,7 @@ const PendingProducts = ({ token }) => {
     setActionLoading(`approve-${id}`);
 
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/product/approve/${id}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.put(`/api/product/approve/${id}`, {});
 
       if (response.data.success) {
         toast.success("Product approved successfully!");
@@ -81,15 +70,9 @@ const PendingProducts = ({ token }) => {
     setActionLoading(`reject-${id}`);
 
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/product/reject/${id}`,
-        { reason: rejectionReason },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.put(`/api/product/reject/${id}`, {
+        reason: rejectionReason,
+      });
 
       if (response.data.success) {
         toast.success("Product rejected");

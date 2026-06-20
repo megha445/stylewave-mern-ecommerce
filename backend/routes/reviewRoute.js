@@ -1,6 +1,7 @@
 import express from "express";
 import {
   addReview,
+  editReview,
   getProductReviews,
   getAllReviews,
   getSellerProductReviews,
@@ -143,6 +144,7 @@ reviewRouter.get("/product/:productId", getProductReviews);
 
 // ✅ User routes - Protected
 reviewRouter.post("/add", mutationLimiter, protect, addReview);
+reviewRouter.put("/edit/:reviewId", mutationLimiter, protect, editReview);
 reviewRouter.get("/can-review/:productId", protect, canUserReview);
 
 // ✅ Admin routes

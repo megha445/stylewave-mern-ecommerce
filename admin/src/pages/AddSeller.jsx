@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 
-const AddSeller = ({ token }) => {
+const AddSeller = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,15 +22,7 @@ const AddSeller = ({ token }) => {
     setSubmitting(true);
 
     try {
-      const response = await axios.post(
-        `${backendUrl}/api/seller/add`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.post("/api/seller/add", formData);
 
       if (response.data.success) {
         toast.success("Seller added successfully");

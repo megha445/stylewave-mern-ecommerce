@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { connectSocket } from "../lib/socket";
 
-const Reviews = ({ token }) => {
+const Reviews = () => {
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRating, setFilterRating] = useState("all");
@@ -24,9 +23,7 @@ const Reviews = ({ token }) => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(`${backendUrl}/api/product/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/api/product/list");
       if (res.data.success) {
         setProducts(res.data.products.filter((product) => product.status === "Approved"));
       }

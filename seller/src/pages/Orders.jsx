@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { connectSocket } from "../lib/socket";
 
-const Orders = ({ token }) => {
+const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [rejectOrderId, setRejectOrderId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -13,9 +12,7 @@ const Orders = ({ token }) => {
 
   const fetchOrders = async () => {
     try {
-      const res = await axios.get(`${backendUrl}/api/seller/orders/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/api/seller/orders/list");
 
       if (res.data.success) {
         setOrders(res.data.orders);
@@ -34,7 +31,7 @@ const Orders = ({ token }) => {
       socket.off("order:created", fetchOrders);
       socket.off("order:updated", fetchOrders);
     };
-  }, [token]);
+  }, []);
 
   // ✅ FILTER ORDERS BY CUSTOMER EMAIL OR ORDER ID
   const filteredOrders = orders.filter((order) => {
@@ -60,11 +57,9 @@ const Orders = ({ token }) => {
   const updateStatus = async (orderId, newStatus) => {
     setActionLoading(`status-${orderId}`);
     try {
-      const res = await axios.put(
-        `${backendUrl}/api/seller/orders/status/${orderId}`,
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.put(`/api/seller/orders/status/${orderId}`, {
+        status: newStatus,
+      });
 
       if (res.data.success) {
         toast.success("Order status updated");
@@ -86,11 +81,9 @@ const Orders = ({ token }) => {
     setActionLoading(`reject-${orderId}`);
 
     try {
-      const res = await axios.put(
-        `${backendUrl}/api/seller/orders/reject/${orderId}`,
-        { reason: rejectReason },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.put(`/api/seller/orders/reject/${orderId}`, {
+        reason: rejectReason,
+      });
 
       if (res.data.success) {
         toast.success("Order rejected");

@@ -1,7 +1,7 @@
 // 📁 frontend/src/pages/Orders.jsx
 
 import React, { useContext, useEffect, useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import Title from "../components/Title";
 import { connectSocket } from "../lib/socket";
 import { ShopContext } from "../context/ShopContext";
@@ -9,25 +9,18 @@ import { ShopContext } from "../context/ShopContext";
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { backendUrl, token, getAuthToken } = useContext(ShopContext);
+  const { isSignedIn, getAuthHeaders } = useContext(ShopContext);
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const authToken = await getAuthToken();
-        if (!authToken) {
+        const headers = await getAuthHeaders();
+        if (!headers.Authorization) {
           setOrders([]);
           return;
         }
 
-        const { data } = await axios.get(
-          `${backendUrl}/api/orders/myorders`,
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
+        const { data } = await api.get("/api/orders/myorders", { headers });
         setOrders(data);
       } catch (error) {
         console.error(error.response?.data || error.message);
@@ -46,7 +39,7 @@ const Orders = () => {
       socket.off("order:created", fetchOrders);
       socket.off("order:updated", fetchOrders);
     };
-  }, [token, backendUrl]);
+  }, [isSignedIn]);
 
   const cancelOrder = async (orderId) => {
     if (!window.confirm("Are you sure you want to cancel this order?")) {
@@ -54,15 +47,11 @@ const Orders = () => {
     }
 
     try {
-      const authToken = await getAuthToken();
-      const { data } = await axios.put(
-        `${backendUrl}/api/orders/${orderId}/cancel`,
+      const headers = await getAuthHeaders();
+      const { data } = await api.put(
+        `/api/orders/${orderId}/cancel`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
+        { headers }
       );
 
       alert(data.message);

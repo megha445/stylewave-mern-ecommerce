@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import Title from "../components/Title";
 import CartTotal from "../components/CartTotal";
 import { assets } from "../assets/assets";
@@ -30,14 +30,14 @@ const PlaceOrder = () => {
     backendUrl,
     delivery_fee,
     clearCart,
-    getAuthToken,
+    getAuthHeaders,
   } = useContext(ShopContext);
 
   // ✅ Fetch Razorpay key on mount
   useEffect(() => {
     const fetchRazorpayKey = async () => {
       try {
-        const res = await axios.get(`${backendUrl}/api/payment/razorpay/key`);
+        const res = await api.get("/api/payment/razorpay/key");
         if (res.data.success) {
           setRazorpayKey(res.data.key_id);
         }
@@ -73,8 +73,8 @@ const PlaceOrder = () => {
     }
 
     try {
-      const token = await getAuthToken();
-      const finalAmount = totalPrice + delivery_fee; // ✅ Add delivery fee
+      const headers = await getAuthHeaders();
+      const finalAmount = totalPrice + delivery_fee;
 
       console.log("💰 Cart Total:", totalPrice);
       console.log("🚚 Delivery Fee:", delivery_fee);
@@ -83,8 +83,8 @@ const PlaceOrder = () => {
       // ✅ Create Razorpay order — this now also creates the local order
       // record in the DB (status: INITIATED) while our token is still
       // fresh. Note `address` is now sent here, not at verify time.
-      const orderRes = await axios.post(
-        `${backendUrl}/api/payment/razorpay/create-order`,
+      const orderRes = await api.post(
+        "/api/payment/razorpay/create-order",
         {
           amount: finalAmount,
           currency: "INR",
@@ -92,9 +92,7 @@ const PlaceOrder = () => {
           orderItems,
           address: formData,
         },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers }
       );
 
       if (!orderRes.data.success) {
@@ -119,8 +117,8 @@ const PlaceOrder = () => {
             // already created above, and the signature itself proves the
             // payment is genuine. This means even if checkout took a
             // while and our token went stale, verification still works.
-            const verifyRes = await axios.post(
-              `${backendUrl}/api/payment/razorpay/verify`,
+            const verifyRes = await api.post(
+              "/api/payment/razorpay/verify",
               {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -161,19 +159,17 @@ const PlaceOrder = () => {
   // ✅ Handle COD Payment
   const handleCODPayment = async (orderItems, totalPrice) => {
     try {
-      const token = await getAuthToken();
+      const headers = await getAuthHeaders();
       const finalAmount = totalPrice + delivery_fee;
-      const response = await axios.post(
-        `${backendUrl}/api/orders`,
+      const response = await api.post(
+        "/api/orders",
         {
           orderItems,
           totalPrice: finalAmount,
           paymentMethod: "COD",
           address: formData,
         },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers }
       );
   
       if (response.data.success) {
@@ -193,9 +189,9 @@ const PlaceOrder = () => {
   const placeOrderHandler = async () => {
     setPlacingOrder(true);
     try {
-      const token = await getAuthToken();
+      const headers = await getAuthHeaders();
 
-      if (!token) {
+      if (!headers.Authorization) {
         alert("Please login first");
         navigate("/login");
         setPlacingOrder(false);

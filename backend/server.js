@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import "./config/env.js";
 import { createServer } from "http";
 import connectDB from "./config/mongodb.js";
@@ -36,6 +37,7 @@ startBestSellerCron();
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
   origin: function(origin, callback) {
     callback(null, true);

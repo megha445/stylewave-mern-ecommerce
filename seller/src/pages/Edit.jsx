@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 import { useParams, useNavigate } from "react-router-dom";
 
-const Edit = ({token}) => {
+const Edit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -29,12 +28,7 @@ const Edit = ({token}) => {
     const fetchProduct = async () => {
       try {
         // ✅ FIX: Use seller endpoint
-        const res = await axios.get(`${backendUrl}/api/seller/product/list`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
+        const res = await api.get("/api/seller/product/list");
         if (res.data.success) {
           const product = res.data.products.find((p) => p._id === id);
 
@@ -82,17 +76,7 @@ const Edit = ({token}) => {
       formData.append("price", price);
       formData.append("sizes", JSON.stringify(sizes));
 
-      const res = await axios.put(
-        `${backendUrl}/api/seller/product/update/${id}`,  /* ✅ CHANGED */
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
+      const res = await api.put(`/api/seller/product/update/${id}`, formData);
       if (res.data.success) {
         toast.success("Product updated and submitted for approval");
         navigate("/list");  /* ✅ CHANGED */

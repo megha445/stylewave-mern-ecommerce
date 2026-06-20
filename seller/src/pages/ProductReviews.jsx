@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { connectSocket } from "../lib/socket";
 
-const ProductReviews = ({ token }) => {
+const ProductReviews = () => {
   const { productId } = useParams();
   const [reviews, setReviews] = useState([]);
   const [averageRating, setAverageRating] = useState(0);
@@ -14,44 +13,68 @@ const ProductReviews = ({ token }) => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const updateRatings = (avg, total) => {
+    setAverageRating(avg);
+    setTotalReviews(total);
+    setProduct((prev) =>
+      prev ? { ...prev, averageRating: avg, totalReviews: total } : prev
+    );
+  };
+
   useEffect(() => {
     fetchProductReviews();
     fetchProductDetails();
 
     const socket = connectSocket();
+
     const handleReviewChanged = (payload) => {
-      if (String(payload?.productId) === String(productId)) {
-        fetchProductReviews();
-        fetchProductDetails();
-      }
+      if (String(payload?.productId) !== String(productId)) return;
+      updateRatings(payload.averageRating, payload.totalReviews);
+      fetchProductReviews();
+    };
+
+    const handleReviewDeleted = (payload) => {
+      if (String(payload?.productId) !== String(productId)) return;
+
+      setReviews((prev) => {
+        const deleted = prev.find((r) => r._id === payload.reviewId);
+        if (deleted) {
+          setRatingBreakdown((bd) => ({
+            ...bd,
+            [deleted.rating]: Math.max(0, (bd[deleted.rating] || 0) - 1),
+          }));
+        }
+        return prev.filter((r) => r._id !== payload.reviewId);
+      });
+      updateRatings(payload.averageRating, payload.totalReviews);
     };
 
     const handleProductChanged = (payload) => {
-      if (String(payload?.productId) === String(productId)) {
-        fetchProductReviews();
-        fetchProductDetails();
+      if (String(payload?.productId) !== String(productId)) return;
+      if (payload.action === "rating-updated") {
+        updateRatings(payload.averageRating, payload.totalReviews);
+        return;
       }
+      fetchProductReviews();
+      fetchProductDetails();
     };
 
     socket.on("review:changed", handleReviewChanged);
+    socket.on("reviewDeleted", handleReviewDeleted);
     socket.on("product:changed", handleProductChanged);
 
     const interval = setInterval(fetchProductReviews, 60000);
     return () => {
       socket.off("review:changed", handleReviewChanged);
+      socket.off("reviewDeleted", handleReviewDeleted);
       socket.off("product:changed", handleProductChanged);
       clearInterval(interval);
     };
-  }, [productId, token]);
+  }, [productId]);
 
   const fetchProductReviews = async () => {
     try {
-      const res = await axios.get(
-        `${backendUrl}/api/reviews/seller/product/${productId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await api.get(`/api/reviews/seller/product/${productId}`);
 
       if (res.data.success) {
         setReviews(res.data.reviews);
@@ -68,12 +91,7 @@ const ProductReviews = ({ token }) => {
 
   const fetchProductDetails = async () => {
     try {
-      const res = await axios.get(
-        `${backendUrl}/api/seller/product/list`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await api.get("/api/seller/product/list");
 
       if (res.data.success) {
         const prod = res.data.products.find((p) => p._id === productId);
@@ -98,7 +116,6 @@ const ProductReviews = ({ token }) => {
         Reviews for: {product?.name || "Product"}
       </h2>
 
-      {/* Summary Card */}
       <div className="p-6 mb-6 bg-white border rounded-lg shadow">
         <div className="flex items-center gap-4 mb-4">
           {product?.image && (
@@ -116,7 +133,6 @@ const ProductReviews = ({ token }) => {
           </div>
         </div>
 
-        {/* Rating Breakdown */}
         <div className="space-y-2">
           {[5, 4, 3, 2, 1].map((rating) => (
             <div key={rating} className="flex items-center gap-3">
@@ -141,9 +157,7 @@ const ProductReviews = ({ token }) => {
         </div>
       </div>
 
-      {/* Reviews List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Best Reviews */}
         <div>
           <h3 className="mb-3 text-lg font-semibold text-green-600">
             ✅ Best Reviews (4-5 ⭐)
@@ -171,7 +185,6 @@ const ProductReviews = ({ token }) => {
           </div>
         </div>
 
-        {/* Worst Reviews */}
         <div>
           <h3 className="mb-3 text-lg font-semibold text-red-600">
             ⚠️ Needs Attention (1-3 ⭐)

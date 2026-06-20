@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import { useParams, useNavigate } from "react-router-dom";
-import { backendUrl } from "../App";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 
-const Edit = ({ token }) => {
+const Edit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -35,11 +34,7 @@ const Edit = ({ token }) => {
 
   const fetchProduct = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/product/single/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get(`/api/product/single/${id}`);
 
       if (!response.data.success) {
         toast.error("Product not found");
@@ -91,16 +86,7 @@ const Edit = ({ token }) => {
       formData.append("stock", stock);
       formData.append("sizes", JSON.stringify(sizes));
 
-      const response = await axios.put(
-        `${backendUrl}/api/product/update/${id}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await api.put(`/api/product/update/${id}`, formData);
 
       if (response.data.success) {
         toast.success("Product updated successfully");

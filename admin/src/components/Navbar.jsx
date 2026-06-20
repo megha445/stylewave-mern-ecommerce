@@ -1,12 +1,14 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
 import { Link } from "react-router-dom";
+import { ShopContext } from "../context/ShopContext";
 
-const Navbar = ({ setToken, adminName = "Admin" }) => {
+const Navbar = () => {
+  const { adminName, logout } = useContext(ShopContext);
   const [open, setOpen] = useState(false);
 
   const handleLogout = () => {
-    setToken("");
+    logout();
     setOpen(false);
   };
 

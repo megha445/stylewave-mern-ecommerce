@@ -5,34 +5,34 @@ import { assets } from '../assets/assets';
 import CartTotal from '../components/CartTotal';
 
 const Cart = () => {
-  const { products, currency, cartItems, updateQuantity, navigate, backendUrl, token, getAuthToken } = useContext(ShopContext);
+  const { products, currency, cartItems, updateQuantity, navigate, isSignedIn, getAuthHeaders } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
   const [checkingOut, setCheckingOut] = useState(false);
   const [updatingItem, setUpdatingItem] = useState("");
 
   // Cart.jsx
 const handleCheckout = async () => {
-  if (!token) {
+  if (!isSignedIn) {
     alert('Please login first');
     navigate('/login');
     return;
   }
   setCheckingOut(true);
   try {
-    const authToken = await getAuthToken();
-    // Build cart items array
+    const headers = await getAuthHeaders();
     const cartItemsArray = cartData.map(item => ({
       productId: item._id,
       size: item.size,
       quantity: item.quantity
     }));
 
-    const res = await fetch(`${backendUrl}/api/orders/reserve`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ""}/api/orders/reserve`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
+        ...headers,
       },
+      credentials: 'include',
       body: JSON.stringify({ cartItems: cartItemsArray })
     });
 

@@ -1,9 +1,10 @@
 import jwt from "jsonwebtoken";
 import sellerModel from "../models/sellerModel.js";
+import { getTokenFromRequest } from "../utils/cookieAuth.js";
 
 const sellerAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1] || req.headers.token;
+    const token = getTokenFromRequest(req, "seller");
 
     if (!token) {
       return res.json({
@@ -37,26 +38,19 @@ const sellerAuth = async (req, res, next) => {
       });
     }
 
-    // ✅ FIXED: Set both formats for compatibility
     req.seller = {
-      _id: seller._id, // MongoDB ObjectId
-      id: seller._id.toString(), // String version
+      _id: seller._id,
+      id: seller._id.toString(),
       email: seller.email,
-      name: seller.name, // ✅ Get from database, not JWT
+      name: seller.name,
       createdByAdminId: seller.createdByAdminId,
       createdByAdminEmail: seller.createdByAdminEmail,
     };
-    req.body.sellerId = seller._id; // For queries
-    
-    console.log("✅ Seller authenticated:", {
-      id: seller._id,
-      name: seller.name,
-      email: seller.email
-    });
+    req.body.sellerId = seller._id;
 
     next();
   } catch (error) {
-    console.error("❌ sellerAuth error:", error);
+    console.error("sellerAuth error:", error);
     res.json({ success: false, message: error.message });
   }
 };

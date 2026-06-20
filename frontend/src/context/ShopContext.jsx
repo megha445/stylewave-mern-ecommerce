@@ -1,28 +1,28 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useState, useRef } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { connectSocket } from "../lib/socket";
+import api, { backendUrl } from "../lib/api";
+import { connectSocket, setSocketTokenProvider } from "../lib/socket";
 import { useAuth, useUser } from "@clerk/react";
 
 export const ShopContext = createContext();
 
 const ShopContextProvider = (props) => {
   const [products, setProducts] = useState([]);
-  const [totalProducts, setTotalProducts] = useState(0); // ✅ NEW
-  const [totalPages, setTotalPages] = useState(1);       // ✅ NEW
-  const [currentPage, setCurrentPage] = useState(1);     // ✅ NEW
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [cartItems, setCartItems] = useState({});
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [token, setToken] = useState("");
+  const tokenRef = useRef("");
   const navigate = useNavigate();
   const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
   const { user } = useUser();
 
   const currency = "₹";
   const delivery_fee = 50;
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
   const getAuthToken = async () => {
     if (!isLoaded || !isSignedIn) return "";
@@ -30,10 +30,19 @@ const ShopContextProvider = (props) => {
     const clerkToken = await getToken();
     if (clerkToken) {
       setToken(clerkToken);
-      localStorage.setItem("token", clerkToken);
+      tokenRef.current = clerkToken;
     }
     return clerkToken || "";
   };
+
+  const getAuthHeaders = async () => {
+    const authToken = await getAuthToken();
+    return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  };
+
+  useEffect(() => {
+    setSocketTokenProvider(getAuthToken);
+  }, [isLoaded, isSignedIn, getToken]);
 
   useEffect(() => {
     let isActive = true;
@@ -43,21 +52,13 @@ const ShopContextProvider = (props) => {
 
       if (!isSignedIn) {
         setToken("");
+        tokenRef.current = "";
         setCartItems({});
-        localStorage.removeItem("token");
-        localStorage.removeItem("userEmail");
-        localStorage.removeItem("userName");
         return;
       }
 
       await getAuthToken();
       if (!isActive) return;
-
-      const fullName = user?.fullName || user?.username || "Customer";
-      const email = user?.primaryEmailAddress?.emailAddress || "";
-
-      if (fullName) localStorage.setItem("userName", fullName);
-      if (email) localStorage.setItem("userEmail", email);
     };
 
     syncClerkSession();
@@ -67,7 +68,6 @@ const ShopContextProvider = (props) => {
     };
   }, [getToken, isLoaded, isSignedIn, user]);
 
-  // ✅ Fetch products with pagination
   const fetchProducts = async (page = 1, sort = "") => {
     try {
       const res = await fetch(
@@ -85,7 +85,6 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // ✅ Initial fetch + realtime updates
   useEffect(() => {
     fetchProducts(1);
 
@@ -98,7 +97,6 @@ const ShopContextProvider = (props) => {
     };
   }, [backendUrl, currentPage]);
 
-  // ✅ Load cart from MongoDB when token is available
   useEffect(() => {
     if (token) {
       fetchCartFromDB();
@@ -107,13 +105,12 @@ const ShopContextProvider = (props) => {
     }
   }, [token]);
 
-  // ✅ Remove stale cart items when products load
   useEffect(() => {
     if (products.length === 0) return;
     const cartData = structuredClone(cartItems);
     let changed = false;
     for (const id in cartData) {
-      const exists = products.find(p => p._id === id);
+      const exists = products.find((p) => p._id === id);
       if (!exists) {
         delete cartData[id];
         changed = true;
@@ -122,15 +119,12 @@ const ShopContextProvider = (props) => {
     if (changed) setCartItems(cartData);
   }, [products]);
 
-  // ✅ Fetch cart from MongoDB
   const fetchCartFromDB = async () => {
     try {
-      const authToken = await getAuthToken();
-      if (!authToken) return;
+      const headers = await getAuthHeaders();
+      if (!headers.Authorization) return;
 
-      const res = await axios.get(`${backendUrl}/api/user/cart`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      const res = await api.get("/api/user/cart", { headers });
       if (res.data.success) {
         setCartItems(res.data.cartData || {});
       }
@@ -139,19 +133,20 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // ✅ Search with pagination support
   const searchProductsFromDB = async (query, filters = {}, page = 1) => {
     try {
       const params = new URLSearchParams();
 
-      if (query) params.append('query', query);
-      if (filters.category?.length) params.append('category', filters.category.join(','));
-      if (filters.subCategory?.length) params.append('subCategory', filters.subCategory.join(','));
-      if (filters.sort) params.append('sort', filters.sort);
-      if (filters.minPrice) params.append('minPrice', filters.minPrice);
-      if (filters.maxPrice) params.append('maxPrice', filters.maxPrice);
-      params.append('page', page);
-      params.append('limit', 12);
+      if (query) params.append("query", query);
+      if (filters.category?.length)
+        params.append("category", filters.category.join(","));
+      if (filters.subCategory?.length)
+        params.append("subCategory", filters.subCategory.join(","));
+      if (filters.sort) params.append("sort", filters.sort);
+      if (filters.minPrice) params.append("minPrice", filters.minPrice);
+      if (filters.maxPrice) params.append("maxPrice", filters.maxPrice);
+      params.append("page", page);
+      params.append("limit", 12);
 
       const res = await fetch(`${backendUrl}/api/product/search?${params}`);
       const data = await res.json();
@@ -171,11 +166,10 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // ✅ Add to cart — saves to MongoDB
   const addToCart = async (itemId, size) => {
-    if (!token) {
-      toast.error('Please login to add items to cart');
-      navigate('/login');
+    if (!isSignedIn) {
+      toast.error("Please login to add items to cart");
+      navigate("/login");
       return;
     }
     if (!size) {
@@ -189,11 +183,8 @@ const ShopContextProvider = (props) => {
     setCartItems(cartData);
 
     try {
-      const authToken = await getAuthToken();
-      await axios.post(`${backendUrl}/api/user/cart/add`,
-        { itemId, size },
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
+      const headers = await getAuthHeaders();
+      await api.post("/api/user/cart/add", { itemId, size }, { headers });
       toast.success("Item Added To The Cart");
     } catch (error) {
       console.error("Failed to save cart", error);
@@ -201,7 +192,6 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // ✅ Update quantity — saves to MongoDB
   const updateQuantity = async (itemId, size, quantity) => {
     const cartData = structuredClone(cartItems);
     if (quantity === 0) {
@@ -216,32 +206,29 @@ const ShopContextProvider = (props) => {
     setCartItems(cartData);
 
     try {
-      const authToken = await getAuthToken();
-      await axios.post(`${backendUrl}/api/user/cart/update`,
+      const headers = await getAuthHeaders();
+      await api.post(
+        "/api/user/cart/update",
         { itemId, size, quantity },
-        { headers: { Authorization: `Bearer ${authToken}` } }
+        { headers }
       );
     } catch (error) {
       console.error("Failed to update cart", error);
     }
   };
 
-  // ✅ Clear cart
   const clearCart = async () => {
     setCartItems({});
     try {
-      const authToken = await getAuthToken();
-      await axios.post(`${backendUrl}/api/user/cart/clear`, {},
-        { headers: { Authorization: `Bearer ${authToken}` } }
-      );
+      const headers = await getAuthHeaders();
+      await api.post("/api/user/cart/clear", {}, { headers });
     } catch (error) {
       console.error("Failed to clear cart", error);
     }
   };
 
-  // ✅ Get cart count
   const getCartCount = () => {
-    if (!token) return 0;
+    if (!isSignedIn) return 0;
     let total = 0;
     for (const id in cartItems) {
       for (const size in cartItems[id]) {
@@ -251,7 +238,6 @@ const ShopContextProvider = (props) => {
     return total;
   };
 
-  // ✅ Get cart total amount
   const getCartAmount = () => {
     let total = 0;
     for (const id in cartItems) {
@@ -264,31 +250,22 @@ const ShopContextProvider = (props) => {
     return total;
   };
 
-  // ✅ Login
-  const login = (newToken) => {
-    setToken(newToken);
-    localStorage.setItem('token', newToken);
-  };
-
-  // ✅ Logout
   const logout = async () => {
     setCartItems({});
-    setToken('');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
+    setToken("");
+    tokenRef.current = "";
     if (isSignedIn) {
       await signOut();
     }
-    navigate('/login');
+    navigate("/login");
   };
 
   const value = {
     products,
-    totalProducts,   
-    totalPages,      
-    currentPage,     
-    fetchProducts,   
+    totalProducts,
+    totalPages,
+    currentPage,
+    fetchProducts,
     currency,
     delivery_fee,
     backendUrl,
@@ -305,12 +282,11 @@ const ShopContextProvider = (props) => {
     clearCart,
     navigate,
     token,
-    setToken,
     isAuthLoaded: isLoaded,
     isSignedIn: !!isSignedIn,
     user,
     getAuthToken,
-    login,
+    getAuthHeaders,
     logout,
     fetchCartFromDB,
     searchProductsFromDB,

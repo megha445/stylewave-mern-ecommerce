@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from "react";
+import React, { useContext } from "react";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import { Route, Routes } from "react-router-dom";
@@ -7,40 +7,33 @@ import List from "./pages/List";
 import Orders from "./pages/Orders";
 import Login from "./components/Login";
 import { ToastContainer } from "react-toastify";
-import Edit from"./pages/Edit";
+import Edit from "./pages/Edit";
 import "react-toastify/dist/ReactToastify.css";
 import Dashboard from "./pages/Dashboard";
 import ChangePassword from "./pages/ChangePassword";
 import ProductReviews from "./pages/ProductReviews";
-
-export const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
-
-export const currency = (price) => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-  }).format(price);
-};
+import { ShopContext } from "./context/ShopContext";
 
 const App = () => {
-  // ✅ READ ADMIN TOKEN (FIX)
-  const [token, setToken] = useState(
-    localStorage.getItem("sellerToken") ? localStorage.getItem("sellerToken") : ""
-  );
-  
-  useEffect(() => {
-    localStorage.setItem("sellerToken", token);
-  }, [token]);
+  const { isLoggedIn, authLoading } = useContext(ShopContext);
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
       <ToastContainer position="top-right" theme="colored" />
 
-      {token === "" ? (
-        <Login setToken={setToken} />
+      {!isLoggedIn ? (
+        <Login />
       ) : (
         <>
-          <Navbar setToken={setToken} />
+          <Navbar />
           <hr />
 
           <div className="flex w-full">
@@ -48,13 +41,16 @@ const App = () => {
 
             <div className="w-[70%] mx-auto ml-[max(5vw,25px)] my-8 text-gray-600 text-base">
               <Routes>
-              <Route path="/" element={<Dashboard token={token} />} />
-                <Route path="/add" element={<Add token={token} />} />
-                <Route path="/list" element={<List token={token} />} />
-                <Route path="/orders" element={<Orders token={token} />} />
-                <Route path="/edit/:id" element={<Edit token ={token}/>}/>
-                <Route path="/change-password" element={<ChangePassword token={token} />} />
-                <Route path="/reviews/:productId" element={<ProductReviews token={token} />} />
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/add" element={<Add />} />
+                <Route path="/list" element={<List />} />
+                <Route path="/orders" element={<Orders />} />
+                <Route path="/edit/:id" element={<Edit />} />
+                <Route path="/change-password" element={<ChangePassword />} />
+                <Route
+                  path="/reviews/:productId"
+                  element={<ProductReviews />}
+                />
               </Routes>
             </div>
           </div>

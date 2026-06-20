@@ -1,9 +1,10 @@
 import jwt from "jsonwebtoken";
 import adminModel from "../models/adminModel.js";
+import { getTokenFromRequest } from "../utils/cookieAuth.js";
 
 const adminAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    const token = getTokenFromRequest(req, "admin");
 
     if (!token) {
       return res.json({
@@ -14,7 +15,6 @@ const adminAuth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Check if user is admin
     if (decoded.role !== "admin") {
       return res.json({
         success: false,
@@ -22,7 +22,6 @@ const adminAuth = async (req, res, next) => {
       });
     }
 
-    // Verify admin exists in adminModel
     const admin = await adminModel.findById(decoded.id);
 
     if (!admin) {

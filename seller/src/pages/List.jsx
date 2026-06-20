@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { connectSocket } from "../lib/socket";
 
-const List = ({token}) => {
+const List = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All"); // ✅ NEW
@@ -15,11 +14,7 @@ const List = ({token}) => {
   const fetchProducts = async () => {
     try {
       
-      const res = await axios.get(`${backendUrl}/api/seller/product/list`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await api.get("/api/seller/product/list");
 
       if (res.data.success) {
         setProducts(res.data.products);
@@ -41,14 +36,7 @@ const List = ({token}) => {
 
     try {
       
-      const res = await axios.delete(
-        `${backendUrl}/api/seller/product/delete/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await api.delete(`/api/seller/product/delete/${id}`);
 
       if (res.data.success) {
         toast.success("Product deleted successfully");

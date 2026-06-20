@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
-import axios from "axios";
-import { backendUrl } from "../App";
 import { toast } from "react-toastify";
+import api from "../lib/api";
+import { ShopContext } from "../context/ShopContext";
 
-const Login = ({ setToken }) => {
+const Login = () => {
+  const { login } = useContext(ShopContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -15,26 +16,11 @@ const Login = ({ setToken }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        backendUrl + "/api/user/admin",
-        { email, password }
-      );
+      const response = await api.post("/api/user/admin", { email, password });
 
       if (response.data.success) {
-        const token = response.data.token;
-        const adminName = response.data.admin?.name || "Admin";
-
-        // ✅ SAVE TOKEN (THIS WAS MISSING)
-        localStorage.setItem("adminToken", token);
-        localStorage.setItem("adminName", adminName);
-
-        // ✅ SET TOKEN IN STATE
-        setToken(token);
-
+        login(response.data.admin?.name || "Admin");
         toast.success("Admin login successful");
-
-        // ✅ FORCE REDIRECT (IMPORTANT)
-        window.location.reload();
       } else {
         toast.error(response.data.message);
         setLoading(false);
@@ -69,25 +55,25 @@ const Login = ({ setToken }) => {
           </div>
 
           <div className="relative">
-  <p className="mb-2 text-sm font-medium text-gray-700">Password</p>
+            <p className="mb-2 text-sm font-medium text-gray-700">Password</p>
 
-  <input
-    value={password}
-    onChange={(e) => setPassword(e.target.value)}
-    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md outline-none"
-    type={showPassword ? "text" : "password"}   // 👈 toggle here
-    placeholder="Enter admin password"
-    required
-  />
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md outline-none"
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter admin password"
+              required
+            />
 
-  <button
-    type="button"
-    onClick={() => setShowPassword(!showPassword)}
-    className="absolute right-3 top-[38px] text-gray-500"
-  >
-    {showPassword ? "🙈" : "👁️"}
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-[38px] text-gray-500"
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
 
           <button
             className="w-full px-4 py-2 mt-5 text-white bg-black rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed"

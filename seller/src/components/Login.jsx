@@ -1,39 +1,33 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
-import axios from "axios";
-import { backendUrl } from "../App";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-const Login = ({ setToken }) => {
+import api from "../lib/api";
+import { ShopContext } from "../context/ShopContext";
+
+const Login = () => {
+  const { login } = useContext(ShopContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false); // ✅ Toggle state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
   const onSubmitHandler = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        backendUrl + "/api/user/seller",
-        { email, password }
-      );
+      const response = await api.post("/api/user/seller", { email, password });
 
       if (response.data.success) {
-        localStorage.setItem("sellerToken", response.data.token);
-        localStorage.setItem(
-          "sellerData",
-          JSON.stringify({
-            name: response.data.seller.name,
-            email: response.data.seller.email,
-            id: response.data.seller.id,
-            shopName: response.data.seller.shopName,
-          })
-        );
-
-        setToken(response.data.token);
+        login({
+          name: response.data.seller.name,
+          email: response.data.seller.email,
+          id: response.data.seller.id,
+          shopName: response.data.seller.shopName,
+        });
         toast.success("Login successful!");
         navigate("/");
       } else {
@@ -49,10 +43,9 @@ const Login = ({ setToken }) => {
     }
   };
 
-  // ✅ Forgot Password Handler
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    
+
     if (!email) {
       toast.error("Please enter your email address");
       return;
@@ -61,10 +54,7 @@ const Login = ({ setToken }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        `${backendUrl}/api/seller/forgot-password`,
-        { email }
-      );
+      const response = await api.post("/api/seller/forgot-password", { email });
 
       if (response.data.success) {
         toast.success("Password has been sent to your email!");
@@ -108,27 +98,26 @@ const Login = ({ setToken }) => {
               </div>
 
               <div className="mb-2 relative">
-  <p className="mb-2 text-sm font-medium text-gray-700">Password</p>
+                <p className="mb-2 text-sm font-medium text-gray-700">Password</p>
 
-  <input
-    value={password}
-    onChange={(e) => setPassword(e.target.value)}
-    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500"
-    type={showPassword ? "text" : "password"}
-    placeholder="Enter your password"
-    required
-  />
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  required
+                />
 
-  <button
-    type="button"
-    onClick={() => setShowPassword(!showPassword)}
-    className="absolute right-3 top-[38px] text-gray-500"
-  >
-    {showPassword ? "🙈" : "👁️"}
-  </button>
-</div>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[38px] text-gray-500"
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
 
-              {/* ✅ Forgot Password Link */}
               <div className="mb-4 text-right">
                 <button
                   type="button"
@@ -150,7 +139,6 @@ const Login = ({ setToken }) => {
           </>
         ) : (
           <>
-            {/* ✅ Forgot Password Form */}
             <h1 className="mb-2 text-2xl font-bold">Forgot Password?</h1>
             <p className="mb-4 text-sm text-gray-600">
               Enter your email and we'll send your password.
@@ -180,7 +168,6 @@ const Login = ({ setToken }) => {
               </button>
             </form>
 
-            {/* ✅ Back to Login */}
             <div className="mt-4 text-center">
               <button
                 onClick={() => {

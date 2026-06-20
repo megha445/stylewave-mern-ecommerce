@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { connectSocket } from "../lib/socket";
 
-const Orders = ({ token }) => {
+const Orders = () => {
   const [allOrders, setAllOrders] = useState([]);
   const [activeTab, setActiveTab] = useState("platform");
   const [cancelOrderId, setCancelOrderId] = useState(null);
@@ -13,9 +12,7 @@ const Orders = ({ token }) => {
   const [actionLoading, setActionLoading] = useState("");
   const fetchOrders = async () => {
     try {
-      const res = await axios.get(`${backendUrl}/api/orders/admin/all`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/api/orders/admin/all");
 
       if (res.data.success) {
         setAllOrders(res.data.orders);
@@ -34,7 +31,7 @@ const Orders = ({ token }) => {
       socket.off("order:created", fetchOrders);
       socket.off("order:updated", fetchOrders);
     };
-  }, [token]);
+  }, []);
 
   const getPlatformOrders = () => {
     return allOrders
@@ -112,11 +109,9 @@ const Orders = ({ token }) => {
   const updateStatus = async (orderId, newStatus) => {
     setActionLoading(`status-${orderId}`);
     try {
-      const res = await axios.put(
-        `${backendUrl}/api/orders/admin/status/${orderId}`,
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.put(`/api/orders/admin/status/${orderId}`, {
+        status: newStatus,
+      });
 
       if (res.data.success) {
         toast.success("Order status updated");
@@ -140,11 +135,9 @@ const Orders = ({ token }) => {
     setActionLoading(`cancel-${orderId}`);
 
     try {
-      const res = await axios.put(
-        `${backendUrl}/api/orders/admin/status/${orderId}`,
-        { status: "CANCELLED" },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.put(`/api/orders/admin/status/${orderId}`, {
+        status: "CANCELLED",
+      });
 
       if (res.data.success) {
         toast.success(`Order cancelled. Reason: ${cancelReason}`);

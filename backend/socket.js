@@ -2,10 +2,23 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { clerkClient, verifyToken } from "@clerk/express";
 import userModel from "./models/userModel.js";
+import { COOKIE_NAMES, parseCookies } from "./utils/cookieAuth.js";
 
 let io;
 
 const ADMIN_ROOM = "admins";
+
+const getSocketToken = (socket) => {
+  if (socket.handshake.auth?.token) return socket.handshake.auth.token;
+
+  const cookies = parseCookies(socket.handshake.headers.cookie || "");
+  return (
+    cookies[COOKIE_NAMES.admin] ||
+    cookies[COOKIE_NAMES.seller] ||
+    cookies[COOKIE_NAMES.user] ||
+    null
+  );
+};
 
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
@@ -20,7 +33,7 @@ export const initSocket = (httpServer) => {
 
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token;
+      const token = getSocketToken(socket);
       if (!token) return next();
 
       try {

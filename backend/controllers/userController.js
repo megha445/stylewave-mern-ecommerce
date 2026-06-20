@@ -4,7 +4,16 @@ import sellerModel from "../models/sellerModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import validator from "validator";
-import {sendUserForgotPasswordEmail } from "../config/email.js";
+import { sendUserForgotPasswordEmail } from "../config/email.js";
+import {
+  setAuthCookie,
+  clearAuthCookie,
+  getTokenFromRequest,
+} from "../utils/cookieAuth.js";
+
+const ADMIN_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000;
+const SELLER_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const USER_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 // ============= USER REGISTRATION =============
 const registerUser = async (req, res) => {
@@ -50,9 +59,10 @@ const registerUser = async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    setAuthCookie(res, "user", token, USER_COOKIE_MAX_AGE);
+
     res.json({
       success: true,
-      token,
       message: "User registered successfully",
     });
   } catch (error) {
@@ -87,9 +97,10 @@ const loginUser = async (req, res) => {
         { expiresIn: '7d' }
       );
 
+      setAuthCookie(res, "user", token, USER_COOKIE_MAX_AGE);
+
       res.json({
         success: true,
-        token,
         message: "Login successful",
         email: user.email,
         name: user.name,
@@ -129,9 +140,10 @@ const loginAdmin = async (req, res) => {
         { expiresIn: '1d' }
       );
 
+      setAuthCookie(res, "admin", token, ADMIN_COOKIE_MAX_AGE);
+
       res.json({
         success: true,
-        token,
         admin: {
           name: admin.name,
           email: admin.email,
@@ -181,9 +193,10 @@ const loginSeller = async (req, res) => {
         { expiresIn: '7d' }
       );
 
+      setAuthCookie(res, "seller", token, SELLER_COOKIE_MAX_AGE);
+
       res.json({
         success: true,
-        token,
         seller: {
           id: seller._id,
           name: seller.name,
@@ -344,4 +357,96 @@ const changePasswordUser = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser, loginAdmin, loginSeller, forgotPassword, changePasswordUser };
+const logoutAdmin = (req, res) => {
+  clearAuthCookie(res, "admin");
+  res.json({ success: true, message: "Logged out successfully" });
+};
+
+const logoutSeller = (req, res) => {
+  clearAuthCookie(res, "seller");
+  res.json({ success: true, message: "Logged out successfully" });
+};
+
+const logoutUser = (req, res) => {
+  clearAuthCookie(res, "user");
+  res.json({ success: true, message: "Logged out successfully" });
+};
+
+const checkAdminSession = async (req, res) => {
+  try {
+    const token = getTokenFromRequest(req, "admin");
+    if (!token) return res.json({ success: false });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.json({ success: false });
+
+    const admin = await adminModel.findById(decoded.id);
+    if (!admin) return res.json({ success: false });
+
+    res.json({
+      success: true,
+      admin: { name: admin.name, email: admin.email },
+    });
+  } catch {
+    res.json({ success: false });
+  }
+};
+
+const checkSellerSession = async (req, res) => {
+  try {
+    const token = getTokenFromRequest(req, "seller");
+    if (!token) return res.json({ success: false });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "seller") return res.json({ success: false });
+
+    const seller = await sellerModel.findById(decoded.id);
+    if (!seller || !seller.isActive) return res.json({ success: false });
+
+    res.json({
+      success: true,
+      seller: {
+        id: seller._id,
+        name: seller.name,
+        email: seller.email,
+        shopName: seller.shopName,
+      },
+    });
+  } catch {
+    res.json({ success: false });
+  }
+};
+
+const getAdminMe = (req, res) => {
+  res.json({
+    success: true,
+    admin: { name: req.admin.name, email: req.admin.email },
+  });
+};
+
+const getSellerMe = (req, res) => {
+  res.json({
+    success: true,
+    seller: {
+      id: req.seller._id,
+      name: req.seller.name,
+      email: req.seller.email,
+    },
+  });
+};
+
+export {
+  registerUser,
+  loginUser,
+  loginAdmin,
+  loginSeller,
+  forgotPassword,
+  changePasswordUser,
+  logoutAdmin,
+  logoutSeller,
+  logoutUser,
+  checkAdminSession,
+  checkSellerSession,
+  getAdminMe,
+  getSellerMe,
+};

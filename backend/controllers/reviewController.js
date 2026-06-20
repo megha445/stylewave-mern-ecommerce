@@ -3,25 +3,76 @@ import productModel from "../models/productModel.js";
 import Order from "../models/orderModel.js";
 import { emitToAdmins, emitToAll, emitToSeller } from "../socket.js";
 
+const getProductRatingStats = async (productId) => {
+  const product = await productModel
+    .findById(productId)
+    .select("averageRating totalReviews sellerId");
+  return {
+    averageRating: product?.averageRating || 0,
+    totalReviews: product?.totalReviews || 0,
+    sellerId: product?.sellerId || null,
+  };
+};
+
 const emitReviewChanged = async (action, review) => {
   if (!review?.productId) return;
 
-  const product = await productModel.findById(review.productId).select("sellerId");
+  const stats = await getProductRatingStats(review.productId);
   const payload = {
     reviewId: review._id,
     productId: review.productId,
     action,
+    averageRating: stats.averageRating,
+    totalReviews: stats.totalReviews,
   };
 
   emitToAll("review:changed", payload);
   emitToAdmins("review:changed", payload);
-  emitToAll("product:changed", { productId: review.productId, action: "rating-updated" });
-  if (product?.sellerId) {
-    emitToSeller(product.sellerId.toString(), "review:changed", payload);
-    emitToSeller(product.sellerId.toString(), "product:changed", {
+  emitToAll("product:changed", {
+    productId: review.productId,
+    action: "rating-updated",
+    averageRating: stats.averageRating,
+    totalReviews: stats.totalReviews,
+  });
+  if (stats.sellerId) {
+    emitToSeller(stats.sellerId.toString(), "review:changed", payload);
+    emitToSeller(stats.sellerId.toString(), "product:changed", {
       productId: review.productId,
       action: "rating-updated",
-      sellerId: product.sellerId,
+      sellerId: stats.sellerId,
+      averageRating: stats.averageRating,
+      totalReviews: stats.totalReviews,
+    });
+  }
+};
+
+const emitReviewDeleted = async (review) => {
+  if (!review?.productId) return;
+
+  const stats = await getProductRatingStats(review.productId);
+  const payload = {
+    reviewId: review._id,
+    productId: review.productId,
+    averageRating: stats.averageRating,
+    totalReviews: stats.totalReviews,
+  };
+
+  emitToAll("reviewDeleted", payload);
+  emitToAdmins("reviewDeleted", payload);
+  emitToAll("product:changed", {
+    productId: review.productId,
+    action: "rating-updated",
+    averageRating: stats.averageRating,
+    totalReviews: stats.totalReviews,
+  });
+  if (stats.sellerId) {
+    emitToSeller(stats.sellerId.toString(), "reviewDeleted", payload);
+    emitToSeller(stats.sellerId.toString(), "product:changed", {
+      productId: review.productId,
+      action: "rating-updated",
+      sellerId: stats.sellerId,
+      averageRating: stats.averageRating,
+      totalReviews: stats.totalReviews,
     });
   }
 };
@@ -32,9 +83,8 @@ const emitReviewChanged = async (action, review) => {
 export const addReview = async (req, res) => {
   try {
     const { productId, rating, comment } = req.body;
-    const userId = req.user._id; // From protect middleware
+    const userId = req.user._id;
 
-    // Validate input
     if (!productId || !rating || !comment) {
       return res.status(400).json({
         success: false,
@@ -49,11 +99,10 @@ export const addReview = async (req, res) => {
       });
     }
 
-    // ✅ Check if user has purchased this product
     const hasPurchased = await Order.findOne({
       userId: userId,
       "orderItems.productId": productId,
-      status: "DELIVERED", // Only delivered orders
+      status: "DELIVERED",
     });
 
     if (!hasPurchased) {
@@ -63,7 +112,6 @@ export const addReview = async (req, res) => {
       });
     }
 
-    // ✅ Check if user already reviewed this product
     const existingReview = await reviewModel.findOne({ productId, userId });
 
     if (existingReview) {
@@ -73,7 +121,6 @@ export const addReview = async (req, res) => {
       });
     }
 
-    // ✅ Create review
     const review = await reviewModel.create({
       productId,
       userId,
@@ -81,17 +128,99 @@ export const addReview = async (req, res) => {
       comment,
     });
 
-    // ✅ Update product average rating
     await updateProductRating(productId);
 
     await emitReviewChanged("created", review);
+    const stats = await getProductRatingStats(productId);
+
     res.status(201).json({
       success: true,
       message: "Review added successfully",
       review,
+      averageRating: stats.averageRating,
+      totalReviews: stats.totalReviews,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already reviewed this product",
+      });
+    }
     console.error("Add review error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ===============================
+// EDIT REVIEW (User Only - Own Review)
+// ===============================
+export const editReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { rating, comment } = req.body;
+    const userId = req.user._id;
+
+    if (!rating && !comment) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating or comment is required to update",
+      });
+    }
+
+    if (rating !== undefined && (rating < 1 || rating > 5)) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    const review = await reviewModel.findById(reviewId);
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review not found",
+      });
+    }
+
+    if (review.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only edit your own review",
+      });
+    }
+
+    if (rating !== undefined) review.rating = rating;
+    if (comment !== undefined) {
+      if (comment.trim().length < 10) {
+        return res.status(400).json({
+          success: false,
+          message: "Review must be at least 10 characters long",
+        });
+      }
+      review.comment = comment.trim();
+    }
+
+    review.updatedAt = new Date();
+    await review.save();
+    await updateProductRating(review.productId);
+    await emitReviewChanged("updated", review);
+
+    const stats = await getProductRatingStats(review.productId);
+
+    res.json({
+      success: true,
+      message: "Review updated successfully",
+      review,
+      averageRating: stats.averageRating,
+      totalReviews: stats.totalReviews,
+    });
+  } catch (error) {
+    console.error("Edit review error:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -109,7 +238,7 @@ export const getProductReviews = async (req, res) => {
     const reviews = await reviewModel
       .find({ productId })
       .populate("userId", "name email")
-      .sort({ createdAt: -1 }); // Newest first
+      .sort({ createdAt: -1 });
 
     const product = await productModel.findById(productId);
 
@@ -133,7 +262,7 @@ export const getProductReviews = async (req, res) => {
 // ===============================
 export const getAllReviews = async (req, res) => {
   try {
-    const { productId } = req.query; // Optional filter
+    const { productId } = req.query;
 
     const query = productId ? { productId } : {};
 
@@ -161,17 +290,13 @@ export const getAllReviews = async (req, res) => {
 // ===============================
 export const getSellerProductReviews = async (req, res) => {
   try {
-    const sellerId = req.body.sellerId; // From sellerAuth middleware
+    const sellerId = req.body.sellerId;
     const { productId } = req.params;
 
-    
-
-    // Verify product belongs to seller
     const product = await productModel.findOne({
       _id: productId,
       sellerId: sellerId,
     });
-
 
     if (!product) {
       return res.status(403).json({
@@ -185,7 +310,6 @@ export const getSellerProductReviews = async (req, res) => {
       .populate("userId", "name email")
       .sort({ createdAt: -1 });
 
-    // Calculate rating breakdown
     const ratingBreakdown = {
       5: reviews.filter((r) => r.rating === 5).length,
       4: reviews.filter((r) => r.rating === 4).length,
@@ -229,14 +353,18 @@ export const deleteReview = async (req, res) => {
     const productId = review.productId;
 
     await reviewModel.findByIdAndDelete(reviewId);
-
-    // Update product rating
     await updateProductRating(productId);
 
+    await emitReviewDeleted(review);
     await emitReviewChanged("deleted", review);
+
+    const stats = await getProductRatingStats(productId);
+
     res.json({
       success: true,
       message: "Review deleted successfully",
+      averageRating: stats.averageRating,
+      totalReviews: stats.totalReviews,
     });
   } catch (error) {
     console.error("Delete review error:", error);
@@ -255,21 +383,21 @@ export const canUserReview = async (req, res) => {
     const { productId } = req.params;
     const userId = req.user._id;
 
-    // Check if purchased and delivered
     const hasPurchased = await Order.findOne({
       userId: userId,
       "orderItems.productId": productId,
       status: "DELIVERED",
     });
 
-    // Check if already reviewed
-    const hasReviewed = await reviewModel.findOne({ productId, userId });
+    const existingReview = await reviewModel.findOne({ productId, userId });
 
     res.json({
       success: true,
-      canReview: hasPurchased && !hasReviewed,
+      canReview: !!hasPurchased && !existingReview,
       hasPurchased: !!hasPurchased,
-      hasReviewed: !!hasReviewed,
+      hasReviewed: !!existingReview,
+      userReview: existingReview,
+      userId: userId.toString(),
     });
   } catch (error) {
     console.error("Can review check error:", error);
@@ -294,11 +422,9 @@ const updateProductRating = async (productId) => {
         : 0;
 
     await productModel.findByIdAndUpdate(productId, {
-      averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+      averageRating: Math.round(averageRating * 10) / 10,
       totalReviews,
     });
-
-    console.log(`✅ Updated product ${productId} rating: ${averageRating}`);
   } catch (error) {
     console.error("Update rating error:", error);
   }

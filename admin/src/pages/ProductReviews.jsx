@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { useParams, useNavigate } from "react-router-dom";
 import { connectSocket } from "../lib/socket";
 
-const ProductReviews = ({ token }) => {
+const ProductReviews = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
 
@@ -14,23 +13,53 @@ const ProductReviews = ({ token }) => {
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(false);
 
+  const updateProductRatings = (averageRating, totalReviews) => {
+    setProduct((prev) =>
+      prev ? { ...prev, averageRating, totalReviews } : prev
+    );
+  };
+
   useEffect(() => {
     fetchProductDetails();
     fetchReviews();
+
     const socket = connectSocket();
-    socket.on("review:changed", fetchReviews);
-    socket.on("product:changed", fetchProductDetails);
+
+    const handleReviewChanged = (payload) => {
+      if (String(payload?.productId) !== String(productId)) return;
+      updateProductRatings(payload.averageRating, payload.totalReviews);
+      fetchReviews();
+    };
+
+    const handleReviewDeleted = (payload) => {
+      if (String(payload?.productId) !== String(productId)) return;
+      setReviews((prev) => prev.filter((r) => r._id !== payload.reviewId));
+      updateProductRatings(payload.averageRating, payload.totalReviews);
+    };
+
+    const handleProductChanged = (payload) => {
+      if (String(payload?.productId) !== String(productId)) return;
+      if (payload.action === "rating-updated") {
+        updateProductRatings(payload.averageRating, payload.totalReviews);
+        return;
+      }
+      fetchProductDetails();
+    };
+
+    socket.on("review:changed", handleReviewChanged);
+    socket.on("reviewDeleted", handleReviewDeleted);
+    socket.on("product:changed", handleProductChanged);
+
     return () => {
-      socket.off("review:changed", fetchReviews);
-      socket.off("product:changed", fetchProductDetails);
+      socket.off("review:changed", handleReviewChanged);
+      socket.off("reviewDeleted", handleReviewDeleted);
+      socket.off("product:changed", handleProductChanged);
     };
   }, [productId]);
 
   const fetchProductDetails = async () => {
     try {
-      const res = await axios.get(`${backendUrl}/api/product/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/api/product/list");
       if (res.data.success) {
         const prod = res.data.products.find((p) => p._id === productId);
         setProduct(prod);
@@ -43,11 +72,8 @@ const ProductReviews = ({ token }) => {
   const fetchReviews = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${backendUrl}/api/reviews/admin/all?productId=${productId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      const res = await api.get(
+        `/api/reviews/admin/all?productId=${productId}`
       );
 
       if (res.data.success) {
@@ -66,16 +92,10 @@ const ProductReviews = ({ token }) => {
     }
 
     try {
-      const res = await axios.delete(
-        `${backendUrl}/api/reviews/admin/delete/${reviewId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await api.delete(`/api/reviews/admin/delete/${reviewId}`);
 
       if (res.data.success) {
         toast.success("Review deleted successfully");
-        fetchReviews();
       }
     } catch (error) {
       toast.error("Failed to delete review");
@@ -86,7 +106,6 @@ const ProductReviews = ({ token }) => {
     return "⭐".repeat(rating) + "☆".repeat(5 - rating);
   };
 
-  // Filter reviews by rating tab
   const filteredReviews =
     activeTab === "all"
       ? reviews
@@ -98,7 +117,6 @@ const ProductReviews = ({ token }) => {
 
   return (
     <div className="p-6">
-      {/* Header with Back Button */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Product Reviews</h2>
         <button
@@ -109,7 +127,6 @@ const ProductReviews = ({ token }) => {
         </button>
       </div>
 
-      {/* Product Info Card */}
       {product && (
         <div className="flex items-center gap-4 p-4 mb-6 bg-white border rounded shadow-sm">
           <img
@@ -130,7 +147,6 @@ const ProductReviews = ({ token }) => {
         </div>
       )}
 
-      {/* RATING TABS */}
       <div className="flex gap-1 border-b-2 border-gray-200 mb-6">
         <button
           onClick={() => setActiveTab("all")}
@@ -174,7 +190,6 @@ const ProductReviews = ({ token }) => {
         </button>
       </div>
 
-      {/* Product Dropdown for Quick Switch */}
       <div className="mb-6">
         <select
           value={productId}
@@ -185,7 +200,6 @@ const ProductReviews = ({ token }) => {
         </select>
       </div>
 
-      {/* Reviews List */}
       {loading ? (
         <p className="py-10 text-center text-gray-500">Loading reviews...</p>
       ) : filteredReviews.length === 0 ? (
@@ -207,12 +221,10 @@ const ProductReviews = ({ token }) => {
             >
               <div className="flex items-start justify-between">
                 <div className="flex gap-4 flex-1">
-                  {/* User Avatar Placeholder */}
                   <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
                     <span className="text-xl">👤</span>
                   </div>
 
-                  {/* Review Details */}
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-800">
                       User: {review.userId?.email || "Anonymous"}
@@ -225,7 +237,6 @@ const ProductReviews = ({ token }) => {
                   </div>
                 </div>
 
-                {/* Delete Button */}
                 <button
                   onClick={() => handleDeleteReview(review._id)}
                   className="px-4 py-2 text-sm text-white bg-red-500 rounded hover:bg-red-600"

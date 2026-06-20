@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
 
-const AIAssistantPanel = ({ title, subtitle, endpoint, token, suggestions = [] }) => {
+const AIAssistantPanel = ({ title, subtitle, endpoint, suggestions = [] }) => {
   const [question, setQuestion] = useState(suggestions[0] || "");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
@@ -12,11 +12,7 @@ const AIAssistantPanel = ({ title, subtitle, endpoint, token, suggestions = [] }
     setAnswer("");
 
     try {
-      const res = await axios.post(
-        endpoint,
-        { question: prompt },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.post(endpoint, { question: prompt });
 
       setAnswer(
         res.data.success

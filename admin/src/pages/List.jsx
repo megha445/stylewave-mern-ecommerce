@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { backendUrl, currency } from "../App";
+import React, { useContext, useEffect, useState } from "react";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
-const List = ({ token }) => {
+const List = () => {
+  const { currency } = useContext(ShopContext);
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("platform");
@@ -17,9 +18,7 @@ const List = ({ token }) => {
 
   const fetchListProducts = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/product/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get("/api/product/list");
       if (response.data.success) {
         setAllProducts(response.data.products);
       } else {
@@ -39,11 +38,7 @@ const List = ({ token }) => {
 
     setActionLoading(`delete-${id}`);
     try {
-      const response = await axios.post(
-        `${backendUrl}/api/product/remove`,
-        { id },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.post("/api/product/remove", { id });
 
       if (response.data.success) {
         toast.success(response.data.message);
@@ -73,11 +68,7 @@ const List = ({ token }) => {
   const handleSuspend = async (id) => {
     setActionLoading(`suspend-${id}`);
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/product/suspend/${id}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.put(`/api/product/suspend/${id}`, {});
       if (response.data.success) {
         toast.success(response.data.message);
         fetchListProducts();
@@ -95,11 +86,7 @@ const List = ({ token }) => {
   const handleUnsuspend = async (id) => {
     setActionLoading(`unsuspend-${id}`);
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/product/unsuspend/${id}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.put(`/api/product/unsuspend/${id}`, {});
       if (response.data.success) {
         toast.success(response.data.message);
         fetchListProducts();
@@ -120,7 +107,7 @@ const List = ({ token }) => {
     return () => {
       socket.off("product:changed", fetchListProducts);
     };
-  }, [token]);
+  }, []);
 
   const visibleProducts = allProducts.filter(p => p.status !== "Pending");
   const platformProducts = visibleProducts.filter(p => p.ownedBy === "platform" || !p.sellerId);
@@ -190,7 +177,7 @@ const List = ({ token }) => {
               <b>Category:</b> {item.category} - {item.subCategory}
             </p>
             <p className="text-sm text-gray-600">
-              <b>Price:</b> {currency}{item.price}
+              <b>Price:</b> {currency(item.price)}
             </p>
             <p className="text-sm text-gray-600">
               <b>Stock:</b> {item.stock || 0}

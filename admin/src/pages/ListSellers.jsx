@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 
-const ListSellers = ({ token }) => {
+const ListSellers = () => {
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -11,11 +10,7 @@ const ListSellers = ({ token }) => {
 
   const fetchSellers = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/seller/list`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get("/api/seller/list");
 
       if (response.data.success) {
         setSellers(response.data.sellers);
@@ -33,15 +28,9 @@ const ListSellers = ({ token }) => {
   const toggleSellerStatus = async (id, currentStatus) => {
     setActionLoading(`status-${id}`);
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/seller/update/${id}`,
-        { isActive: !currentStatus },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.put(`/api/seller/update/${id}`, {
+        isActive: !currentStatus,
+      });
 
       if (response.data.success) {
         toast.success(
@@ -67,14 +56,7 @@ const ListSellers = ({ token }) => {
     setActionLoading(`delete-${id}`);
 
     try {
-      const response = await axios.delete(
-        `${backendUrl}/api/seller/delete/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.delete(`/api/seller/delete/${id}`);
 
       if (response.data.success) {
         toast.success("Seller deleted successfully");
@@ -92,7 +74,7 @@ const ListSellers = ({ token }) => {
 
   useEffect(() => {
     fetchSellers();
-  }, [token]);
+  }, []);
 
   // Filter sellers by search query
   const filteredSellers = sellers.filter(

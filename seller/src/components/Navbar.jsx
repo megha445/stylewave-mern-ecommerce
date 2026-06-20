@@ -1,24 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
 import { Link, useNavigate } from "react-router-dom";
+import { ShopContext } from "../context/ShopContext";
 
-const Navbar = ({ setToken }) => {
-  const [sellerName, setSellerName] = useState("");
+const Navbar = () => {
+  const { sellerName, logout } = useContext(ShopContext);
   const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const seller = localStorage.getItem("sellerData");
-    if (seller) {
-      const sellerData = JSON.parse(seller);
-      setSellerName(sellerData.name || "Seller");
-    }
-  }, []);
-
   const handleLogout = () => {
-    setToken("");
-    localStorage.removeItem("sellerToken");
-    localStorage.removeItem("sellerData");
+    logout();
     navigate("/");
   };
 

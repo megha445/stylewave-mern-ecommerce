@@ -1,17 +1,24 @@
 import { io } from "socket.io-client";
 
 let socket;
+let tokenProvider = async () => "";
 
 const getBackendUrl = () =>
-  import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+  import.meta.env.VITE_BACKEND_URL || window.location.origin;
+
+export const setSocketTokenProvider = (fn) => {
+  tokenProvider = fn;
+};
 
 export const connectSocket = () => {
   if (socket) return socket;
 
   socket = io(getBackendUrl(), {
+    withCredentials: true,
     transports: ["polling", "websocket"],
-    auth: {
-      token: localStorage.getItem("token"),
+    auth: async (cb) => {
+      const token = await tokenProvider();
+      cb({ token: token || "" });
     },
   });
 

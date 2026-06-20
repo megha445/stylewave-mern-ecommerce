@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
+import { toast } from "react-toastify";
 import {
   PieChart,
   Pie,
@@ -12,26 +13,17 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import { backendUrl } from "../App";
-import { toast } from "react-toastify";
 import AIAssistantPanel from "../components/AIAssistantPanel";
 
 const COLORS = ["#4ade80", "#60a5fa", "#facc15", "#f87171", "#a78bfa"];
 
-const Dashboard = ({ token }) => {
+const Dashboard = () => {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await axios.get(
-          `${backendUrl}/api/seller/orders/dashboard`, // ✅ FIXED: Changed from /api/orders/seller/dashboard
-          {
-            headers: {
-              Authorization: `Bearer ${token}`, // ✅ FIXED: Changed from Authorization: Bearer ${token}
-            },
-          }
-        );
+        const res = await api.get("/api/seller/orders/dashboard");
 
         if (res.data.success) {
           setStats(res.data.stats);
@@ -45,7 +37,7 @@ const Dashboard = ({ token }) => {
     };
 
     fetchDashboard();
-  }, [token]);
+  }, []);
 
   if (!stats) {
     return (
@@ -62,8 +54,7 @@ const Dashboard = ({ token }) => {
       <AIAssistantPanel
         title="Seller Growth Helper"
         subtitle="Get product, review, stock, and order insights from your seller data."
-        endpoint={`${backendUrl}/api/ai/seller/insights`}
-        token={token}
+        endpoint="/api/ai/seller/insights"
         suggestions={[
           "Give me today's growth checklist based on my products and orders",
           "Which products need stock, price, or listing improvements first?",

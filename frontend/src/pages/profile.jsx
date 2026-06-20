@@ -5,10 +5,10 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { backendUrl, getCartCount, logout, token, user, isSignedIn } = useContext(ShopContext);
+  const { getCartCount, logout, user, isSignedIn, getAuthHeaders } = useContext(ShopContext);
 
-  const name = user?.fullName || user?.username || localStorage.getItem("userName") || "Customer";
-  const email = user?.primaryEmailAddress?.emailAddress || localStorage.getItem("userEmail") || "Not available";
+  const name = user?.fullName || user?.username || "Customer";
+  const email = user?.primaryEmailAddress?.emailAddress || "Not available";
   const initials = name
     .split(" ")
     .filter(Boolean)
@@ -134,8 +134,8 @@ const Profile = () => {
       <AIAssistantPanel
         title="Shopping Helper"
         subtitle="Ask for product suggestions using the current catalog and your recent orders."
-        endpoint={`${backendUrl}/api/ai/user/shopping`}
-        token={token}
+        endpoint="/api/ai/user/shopping"
+        getAuthHeaders={getAuthHeaders}
         suggestions={[
           "Pick the best value products under 1500 and explain why",
           "Recommend what to buy next based on my recent orders",

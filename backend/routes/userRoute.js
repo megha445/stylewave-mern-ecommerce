@@ -6,6 +6,13 @@ import {
   loginSeller,
   forgotPassword,
   changePasswordUser,
+  logoutAdmin,
+  logoutSeller,
+  logoutUser,
+  checkAdminSession,
+  checkSellerSession,
+  getAdminMe,
+  getSellerMe,
 } from "../controllers/userController.js";
 import {
   getCart,
@@ -14,6 +21,8 @@ import {
   clearCart,
 } from "../controllers/cartController.js";
 import protect from "../middleware/authMiddleware.js";
+import adminAuth from "../middleware/adminAuth.js";
+import sellerAuth from "../middleware/sellerAuth.js";
 import {
   authLimiter,
   mutationLimiter,
@@ -270,9 +279,18 @@ userRouter.post("/login", authLimiter, loginUser);
 
 // ADMIN LOGIN
 userRouter.post("/admin", authLimiter, loginAdmin);
+userRouter.post("/admin/logout", logoutAdmin);
+userRouter.get("/admin/session", checkAdminSession);
+userRouter.get("/admin/me", adminAuth, getAdminMe);
 
 //SELLER LOGIN
 userRouter.post("/seller", authLimiter, loginSeller);
+userRouter.post("/seller/logout", logoutSeller);
+userRouter.get("/seller/session", checkSellerSession);
+userRouter.get("/seller/me", sellerAuth, getSellerMe);
+
+// USER LOGOUT
+userRouter.post("/logout", logoutUser);
 
 //USER FORGOT PASSWORD
 userRouter.post("/forgot-password", passwordLimiter, forgotPassword);

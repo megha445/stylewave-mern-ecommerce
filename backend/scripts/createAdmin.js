@@ -16,8 +16,8 @@ await connectDB();
 
 const defaultAdmin = {
   name: "Default Admin",
-  email: "admin@stylewave.com",
-  password: "Admin@123456",
+  email: "vattamvenkatasaimeghashyamredd@gmail.com",
+  password: "meghashyam",
 };
 
 const existingAdmin = await adminModel.findOne({ email: defaultAdmin.email });

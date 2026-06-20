@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 
-const ChangePassword = ({ token }) => {
+const ChangePassword = () => {
   const [formData, setFormData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -40,18 +39,10 @@ const ChangePassword = ({ token }) => {
     setLoading(true);
 
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/seller/change-password`,
-        {
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.put("/api/seller/change-password", {
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      });
 
       if (response.data.success) {
         toast.success(response.data.message);

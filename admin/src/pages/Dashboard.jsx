@@ -1,8 +1,7 @@
 // 📁 frontend/src/pages/Dashboard.jsx
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import {
   PieChart,
@@ -20,20 +19,13 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 
 const COLORS = ["#4ade80", "#60a5fa", "#facc15", "#f87171", "#a78bfa"];
 
-const Dashboard = ({ token }) => { 
+const Dashboard = () => {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        // ✅ Use different endpoint based on role
-        const endpoint = `${backendUrl}/api/orders/admin/dashboard`;
-
-        const res = await axios.get(endpoint, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await api.get("/api/orders/admin/dashboard");
 
         if (res.data.success) {
           setStats(res.data.stats);
@@ -47,7 +39,7 @@ const Dashboard = ({ token }) => {
     };
 
     fetchDashboard();
-  }, [token]);
+  }, []);
 
   if (!stats) {
     return (
@@ -64,8 +56,7 @@ const Dashboard = ({ token }) => {
       <AIAssistantPanel
         title="Admin Operations Helper"
         subtitle="Ask about pending approvals, low stock, order health, and review risks."
-        endpoint={`${backendUrl}/api/ai/admin/insights`}
-        token={token}
+        endpoint="/api/ai/admin/insights"
         suggestions={[
           "Give me a priority checklist for today with reasons",
           "Which pending products look risky and what should I inspect?",
