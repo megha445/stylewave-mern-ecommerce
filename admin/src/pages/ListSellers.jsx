@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useEffect, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 
 const ListSellers = () => {
+  const { api, handleApiError, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -15,11 +16,10 @@ const ListSellers = () => {
       if (response.data.success) {
         setSellers(response.data.sellers);
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to load sellers");
+      handleApiError(error, "Failed to load sellers");
     } finally {
       setLoading(false);
     }
@@ -33,16 +33,15 @@ const ListSellers = () => {
       });
 
       if (response.data.success) {
-        toast.success(
+        notifySuccess(
           `Seller ${!currentStatus ? "activated" : "deactivated"} successfully`
         );
         fetchSellers();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to update seller status");
+      handleApiError(error, "Failed to update seller status");
     } finally {
       setActionLoading("");
     }
@@ -59,14 +58,13 @@ const ListSellers = () => {
       const response = await api.delete(`/api/seller/delete/${id}`);
 
       if (response.data.success) {
-        toast.success("Seller deleted successfully");
+        notifySuccess("Seller deleted successfully");
         fetchSellers();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to delete seller");
+      handleApiError(error, "Failed to delete seller");
     } finally {
       setActionLoading("");
     }

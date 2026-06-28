@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useState, useEffect } from "react";
 import { assets } from "../assets/assets";
 import { useParams, useNavigate } from "react-router-dom";
+import { ShopContext } from "../context/ShopContext";
 
 const Edit = () => {
+  const { api, handleApiError, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -42,13 +43,12 @@ const Edit = () => {
             setExistingImages(product.image);
             setProductStatus(product.status);
           } else {
-            toast.error("Product not found");
+            notifyError("Product not found");
             navigate("/list");  /* ✅ CHANGED */
           }
         }
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to fetch product");
+        handleApiError(err, "Failed to fetch product");
       } finally {
         setLoading(false);
       }
@@ -78,14 +78,13 @@ const Edit = () => {
 
       const res = await api.put(`/api/seller/product/update/${id}`, formData);
       if (res.data.success) {
-        toast.success("Product updated and submitted for approval");
+        notifySuccess("Product updated and submitted for approval");
         navigate("/list");  /* ✅ CHANGED */
       } else {
-        toast.error(res.data.message);
+        notifyError(res.data.message);
       }
     } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.message || "Failed to update product");
+      handleApiError(err, "Failed to update product");
     } finally {
       setSubmitting(false);
     }
@@ -99,8 +98,16 @@ const Edit = () => {
     );
   }
 
-  // ✅ Show warning if approved
-  if (productStatus === "Approved") {
+  const editableStatuses = ["Pending", "Rejected"];
+  const statusMessage =
+    productStatus === "Suspended"
+      ? "This product has been suspended by admin. You cannot edit it from the seller panel."
+      : productStatus === "Removed"
+      ? "This product has been removed and cannot be edited."
+      : "This product has been approved by the admin. You cannot edit it anymore. Please contact the administrator if you need to make changes.";
+
+  // ✅ Show warning if product is not editable by seller
+  if (!editableStatuses.includes(productStatus)) {
     return (
       <div className="w-full p-6 mx-auto max-w-2xl">
         <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
@@ -109,10 +116,9 @@ const Edit = () => {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <div>
-              <h3 className="text-lg font-semibold text-red-800">Cannot Edit Approved Product</h3>
+              <h3 className="text-lg font-semibold text-red-800">Cannot Edit Product</h3>
               <p className="mt-1 text-sm text-red-700">
-                This product has been approved by the admin. You cannot edit it anymore.
-                Please contact the administrator if you need to make changes.
+                {statusMessage}
               </p>
             </div>
           </div>

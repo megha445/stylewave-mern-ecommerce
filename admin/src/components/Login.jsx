@@ -1,34 +1,23 @@
 import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
-import { toast } from "react-toastify";
-import api from "../lib/api";
 import { ShopContext } from "../context/ShopContext";
 
 const Login = () => {
-  const { login } = useContext(ShopContext);
+  const { login, actionLoading } = useContext(ShopContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      const response = await api.post("/api/user/admin", { email, password });
-
-      if (response.data.success) {
-        login(response.data.admin?.name || "Admin");
-        toast.success("Admin login successful");
-      } else {
-        toast.error(response.data.message);
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Invalid admin credentials");
-      setLoading(false);
+  
+    const result = await login({
+      email,
+      password,
+    });
+  
+    if (!result?.success) {
+      return;
     }
   };
 
@@ -78,9 +67,9 @@ const Login = () => {
           <button
             className="w-full px-4 py-2 mt-5 text-white bg-black rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed"
             type="submit"
-            disabled={loading}
+            disabled={actionLoading}
           >
-            {loading ? "Logging in..." : "Login"}
+            {actionLoading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>

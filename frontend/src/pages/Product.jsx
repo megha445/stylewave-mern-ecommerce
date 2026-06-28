@@ -67,23 +67,7 @@ const Product = () => {
           <h1 className='mt-2 text-2xl font-medium'>{productData.name}</h1>
           
           {/* ✅ UPDATED: Show actual rating */}
-          <div className='flex items-center gap-1 mt-2'>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <img
-                key={star}
-                src={
-                  star <= Math.round(productData.averageRating || 0)
-                    ? assets.star_icon
-                    : assets.star_dull_icon
-                }
-                alt="Ratings"
-                className="w-3.5"
-              />
-            ))}
-            <p className='pl-2'>
-              ({productData.totalReviews || 0} {productData.totalReviews === 1 ? 'review' : 'reviews'})
-            </p>
-          </div>
+          
 
           <p className='mt-5 text-3xl font-medium'>{currency}{productData.price}</p>
           {productData.stock <= 10 && productData.stock > 0 && (

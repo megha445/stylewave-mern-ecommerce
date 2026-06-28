@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
 const List = () => {
+  const { api, formatCurrency, handleApiError, notifyError, notifySuccess, subscribeSocket } =
+    useContext(ShopContext);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All"); // ✅ NEW
@@ -19,11 +19,10 @@ const List = () => {
       if (res.data.success) {
         setProducts(res.data.products);
       } else {
-        toast.error(res.data.message);
+        notifyError(res.data.message);
       }
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to fetch products");
+      handleApiError(err, "Failed to fetch products");
     } finally {
       setLoading(false);
     }
@@ -39,25 +38,20 @@ const List = () => {
       const res = await api.delete(`/api/seller/product/delete/${id}`);
 
       if (res.data.success) {
-        toast.success("Product deleted successfully");
+        notifySuccess("Product deleted successfully");
         fetchProducts();
       } else {
-        toast.error(res.data.message);
+        notifyError(res.data.message);
       }
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete product");
+      handleApiError(err, "Failed to delete product");
     }
   };
   
   useEffect(() => {
     fetchProducts();
-    const socket = connectSocket();
-    socket.on("product:changed", fetchProducts);
-    return () => {
-      socket.off("product:changed", fetchProducts);
-    };
-  }, []);
+    return subscribeSocket("product:changed", fetchProducts);
+  }, [subscribeSocket]);
 
   // ✅ NEW: Filter products based on selected filters
   const filteredProducts = products.filter((product) => {
@@ -65,6 +59,12 @@ const List = () => {
     const subCategoryMatch = selectedSubCategory === "All" || product.subCategory === selectedSubCategory;
     
     return categoryMatch && subCategoryMatch;
+  });
+
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => {
+    const aRemoved = a.status === "Removed" ? 1 : 0;
+    const bRemoved = b.status === "Removed" ? 1 : 0;
+    return aRemoved - bRemoved;
   });
 
   // ✅ NEW: Reset subcategory when category changes
@@ -78,11 +78,13 @@ const List = () => {
       Pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
       Approved: "bg-green-100 text-green-800 border-green-300",
       Rejected: "bg-red-100 text-red-800 border-red-300",
+      Suspended: "bg-orange-100 text-orange-800 border-orange-300",
+      Removed: "bg-gray-100 text-gray-600 border-gray-300",
     };
-
+  
     return (
       <span
-        className={`px-3 py-1 text-xs font-semibold rounded-full border ${styles[status]}`}
+        className={`px-3 py-1 text-xs font-semibold rounded-full border ${styles[status] || styles.Pending}`}
       >
         {status}
       </span>
@@ -267,8 +269,8 @@ const List = () => {
 
             {/* Results Count */}
             <div className="mt-4 text-sm text-gray-600">
-              Showing <span className="font-semibold">{filteredProducts.length}</span> of{" "}
-              <span className="font-semibold">{products.length}</span> products
+            Showing <span className="font-semibold">{sortedFilteredProducts.length}</span> of{" "}
+            <span className="font-semibold">{products.length}</span> products
             </div>
           </div>
 
@@ -364,7 +366,7 @@ const List = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredProducts.map((product) => (
+                    {sortedFilteredProducts.map((product) => (
                       <tr key={product._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <img
@@ -395,7 +397,7 @@ const List = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
-                            ₹{product.price}
+                            {formatCurrency(product.price)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -422,39 +424,50 @@ const List = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
-                          <div className="flex gap-2">
-                            {product.status !== "Approved" && (
-                              <button
-                                onClick={() =>
-                                  navigate(`/edit/${product._id}`)
-                                }
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {product.status !== "Approved" && (
-                              <button
-                                onClick={() => deleteProduct(product._id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                               </button>
-                            )}
-                            {product.status === "Approved" && (
-                              <span className="text-xs text-gray-400 italic">
-                                Contact admin to edit/delete
-                              </span>
-                            )}
-                        
-                            <button
-                              onClick={() => navigate(`/reviews/${product._id}`)}
-                              className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                            >
-                              View Reviews
-                            </button>
-                          </div>
-                        </td>
+  <div className="flex items-center gap-2">
+    {(product.status === "Pending" || product.status === "Rejected") && (
+      <>
+        <button
+          onClick={() => navigate(`/edit/${product._id}`)}
+          className="text-blue-600 hover:text-blue-900"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => deleteProduct(product._id)}
+          className="text-red-600 hover:text-red-900"
+        >
+          Delete
+        </button>
+      </>
+    )}
+
+    {product.status === "Approved" && (
+      <span className="text-xs italic text-gray-400">
+        Contact admin to edit/delete
+      </span>
+    )}
+
+    {product.status === "Suspended" && (
+      <span className="text-xs italic text-orange-500">
+        Suspended by admin
+      </span>
+    )}
+
+    {product.status === "Removed" && (
+      <span className="text-xs italic text-gray-400">
+        Removed
+      </span>
+    )}
+
+    <button
+      onClick={() => navigate(`/reviews/${product._id}`)}
+      className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+    >
+      View Reviews
+    </button>
+  </div>
+</td>
                       </tr>
                     ))}
                   </tbody>

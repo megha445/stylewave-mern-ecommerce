@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 
 const ChangePassword = () => {
+  const { api, handleApiError, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const [formData, setFormData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -22,17 +23,17 @@ const ChangePassword = () => {
 
     // Validation
     if (formData.newPassword !== formData.confirmPassword) {
-      toast.error("New passwords do not match!");
+      notifyError("New passwords do not match!");
       return;
     }
 
     if (formData.newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long!");
+      notifyError("Password must be at least 8 characters long!");
       return;
     }
 
     if (formData.currentPassword === formData.newPassword) {
-      toast.error("New password must be different from current password!");
+      notifyError("New password must be different from current password!");
       return;
     }
 
@@ -45,7 +46,7 @@ const ChangePassword = () => {
       });
 
       if (response.data.success) {
-        toast.success(response.data.message);
+        notifySuccess(response.data.message);
         // Reset form
         setFormData({
           currentPassword: "",
@@ -53,11 +54,10 @@ const ChangePassword = () => {
           confirmPassword: "",
         });
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to change password");
+      handleApiError(error, "Failed to change password");
     } finally {
       setLoading(false);
     }

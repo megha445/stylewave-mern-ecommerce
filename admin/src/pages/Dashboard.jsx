@@ -1,8 +1,7 @@
 // 📁 frontend/src/pages/Dashboard.jsx
 
-import React, { useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useEffect, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 import {
   PieChart,
   Pie,
@@ -20,6 +19,7 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 const COLORS = ["#4ade80", "#60a5fa", "#facc15", "#f87171", "#a78bfa"];
 
 const Dashboard = () => {
+  const { api, handleApiError, formatCurrency } = useContext(ShopContext);
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -30,16 +30,18 @@ const Dashboard = () => {
         if (res.data.success) {
           setStats(res.data.stats);
         } else {
-          toast.error("Failed to load dashboard");
+          handleApiError(
+            { message: "Failed to load dashboard" },
+            "Failed to load dashboard"
+          );
         }
       } catch (error) {
-        console.error(error);
-        toast.error(error.response?.data?.message || "Failed to load dashboard");
+        handleApiError(error, "Failed to load dashboard");
       }
     };
 
     fetchDashboard();
-  }, []);
+  }, [api, handleApiError]);
 
   if (!stats) {
     return (
@@ -68,7 +70,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <Card title="Total Orders" value={stats.totalOrders} />
         <Card title="Total Users" value={stats.totalUsers} />
-        <Card title="Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} />
+        <Card title="Revenue" value={formatCurrency(stats.totalRevenue)} />
         <Card
           title="Cancelled Orders"
           value={
@@ -173,7 +175,7 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-semibold text-green-600">
-                        ₹{product.totalRevenue.toLocaleString()}
+                      {formatCurrency(product.totalRevenue)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

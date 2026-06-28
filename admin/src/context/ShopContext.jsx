@@ -97,14 +97,23 @@ const ShopContextProvider = (props) => {
     [notifyError]
   );
 
+  const applyAuthenticatedAdmin = useCallback((admin) => {
+    setAdminData(admin);
+    setIsLoggedIn(true);
+    connectSocket();
+  }, []);
+
   const login = useCallback(async (credentialsOrAdmin) => {
     setActionLoading(true);
 
     try {
-      if (typeof credentialsOrAdmin === "object" && credentialsOrAdmin?.email) {
-        setAdminData(credentialsOrAdmin);
-        setIsLoggedIn(true);
-        connectSocket();
+      const isExistingAdminData =
+        typeof credentialsOrAdmin === "object" &&
+        credentialsOrAdmin?.email &&
+        !credentialsOrAdmin?.password;
+
+      if (isExistingAdminData) {
+        applyAuthenticatedAdmin(credentialsOrAdmin);
         return { success: true, admin: credentialsOrAdmin };
       }
 
@@ -115,9 +124,7 @@ const ShopContextProvider = (props) => {
       }
 
       const admin = res.data.admin || { name: "Admin" };
-      setAdminData(admin);
-      setIsLoggedIn(true);
-      connectSocket();
+      applyAuthenticatedAdmin(admin);
       notifySuccess(res.data.message || "Admin login successful");
       return res.data;
     } catch (error) {
@@ -126,7 +133,7 @@ const ShopContextProvider = (props) => {
     } finally {
       setActionLoading(false);
     }
-  }, [handleApiError, notifyError, notifySuccess]);
+  }, [applyAuthenticatedAdmin, handleApiError, notifyError, notifySuccess]);
 
   const logout = useCallback(async () => {
     setActionLoading(true);

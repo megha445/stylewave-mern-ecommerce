@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import api from "../lib/api";
-import { toast } from "react-toastify";
-import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
 const ProductReviews = () => {
+  const { api, handleApiError, subscribeSocket } = useContext(ShopContext);
   const { productId } = useParams();
   const [reviews, setReviews] = useState([]);
   const [averageRating, setAverageRating] = useState(0);
@@ -24,8 +23,6 @@ const ProductReviews = () => {
   useEffect(() => {
     fetchProductReviews();
     fetchProductDetails();
-
-    const socket = connectSocket();
 
     const handleReviewChanged = (payload) => {
       if (String(payload?.productId) !== String(productId)) return;
@@ -59,18 +56,27 @@ const ProductReviews = () => {
       fetchProductDetails();
     };
 
-    socket.on("review:changed", handleReviewChanged);
-    socket.on("reviewDeleted", handleReviewDeleted);
-    socket.on("product:changed", handleProductChanged);
+    const unsubscribeReviewChanged = subscribeSocket(
+      "review:changed",
+      handleReviewChanged
+    );
+    const unsubscribeReviewDeleted = subscribeSocket(
+      "reviewDeleted",
+      handleReviewDeleted
+    );
+    const unsubscribeProductChanged = subscribeSocket(
+      "product:changed",
+      handleProductChanged
+    );
 
     const interval = setInterval(fetchProductReviews, 60000);
     return () => {
-      socket.off("review:changed", handleReviewChanged);
-      socket.off("reviewDeleted", handleReviewDeleted);
-      socket.off("product:changed", handleProductChanged);
+      unsubscribeReviewChanged();
+      unsubscribeReviewDeleted();
+      unsubscribeProductChanged();
       clearInterval(interval);
     };
-  }, [productId]);
+  }, [productId, subscribeSocket]);
 
   const fetchProductReviews = async () => {
     try {
@@ -83,7 +89,7 @@ const ProductReviews = () => {
         setRatingBreakdown(res.data.ratingBreakdown);
       }
     } catch (error) {
-      toast.error("Failed to load reviews");
+      handleApiError(error, "Failed to load reviews");
     } finally {
       setLoading(false);
     }
@@ -98,7 +104,7 @@ const ProductReviews = () => {
         setProduct(prod);
       }
     } catch (error) {
-      console.error("Failed to fetch product");
+      handleApiError(error, "Failed to fetch product");
     }
   };
 

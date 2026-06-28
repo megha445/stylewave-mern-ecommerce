@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
-import api from "../lib/api";
+import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
+import { ShopContext } from "../context/ShopContext";
 
 const Edit = () => {
+  const { api, handleApiError, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -37,7 +38,7 @@ const Edit = () => {
       const response = await api.get(`/api/product/single/${id}`);
 
       if (!response.data.success) {
-        toast.error("Product not found");
+        notifyError("Product not found");
         navigate("/list");
         return;
       }
@@ -53,8 +54,7 @@ const Edit = () => {
       setSizes(product.sizes || []);
       setExistingImages(product.image || []);
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to fetch product");
+      handleApiError(error, "Failed to fetch product");
     } finally {
       setLoading(false);
     }
@@ -63,12 +63,6 @@ const Edit = () => {
   const updateProduct = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    console.log("name:", name);
-    console.log("description:", description);
-    console.log("price:", price);
-    console.log("category:", category);
-    console.log("subCategory:", subCategory);
-    console.log("stock:", stock);
 
     try {
       const formData = new FormData();
@@ -89,14 +83,13 @@ const Edit = () => {
       const response = await api.put(`/api/product/update/${id}`, formData);
 
       if (response.data.success) {
-        toast.success("Product updated successfully");
+        notifySuccess("Product updated successfully");
         navigate("/list");
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to update product");
+      handleApiError(error, "Failed to update product");
     } finally {
       setSubmitting(false);
     }

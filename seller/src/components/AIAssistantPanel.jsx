@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import api from "../lib/api";
+import React, { useContext, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 
 const AIAssistantPanel = ({ title, subtitle, endpoint, suggestions = [] }) => {
+  const { api } = useContext(ShopContext);
   const [question, setQuestion] = useState(suggestions[0] || "");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);

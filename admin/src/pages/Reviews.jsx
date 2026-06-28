@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
 const Reviews = () => {
+  const { api, handleApiError, subscribeSocket } = useContext(ShopContext);
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRating, setFilterRating] = useState("all");
@@ -12,14 +11,13 @@ const Reviews = () => {
 
   useEffect(() => {
     fetchProducts();
-    const socket = connectSocket();
-    socket.on("product:changed", fetchProducts);
-    socket.on("review:changed", fetchProducts);
+    const unsubscribeProducts = subscribeSocket("product:changed", fetchProducts);
+    const unsubscribeReviews = subscribeSocket("review:changed", fetchProducts);
     return () => {
-      socket.off("product:changed", fetchProducts);
-      socket.off("review:changed", fetchProducts);
+      unsubscribeProducts();
+      unsubscribeReviews();
     };
-  }, []);
+  }, [subscribeSocket]);
 
   const fetchProducts = async () => {
     try {
@@ -28,8 +26,7 @@ const Reviews = () => {
         setProducts(res.data.products.filter((product) => product.status === "Approved"));
       }
     } catch (error) {
-      console.error("Failed to fetch products");
-      toast.error("Failed to load products");
+      handleApiError(error, "Failed to load products");
     }
   };
 
@@ -69,27 +66,6 @@ const Reviews = () => {
           <option value="all">All Ratings</option>
           <option value="good">Good (4-5 ⭐)</option>
           <option value="bad">Bad (1-3 ⭐)</option>
-        </select>
-      </div>
-
-      <div className="mb-6">
-        <select
-          onChange={(e) => {
-            if (e.target.value) {
-              navigate(`/product-reviews/${e.target.value}`);
-            }
-          }}
-          className="px-4 py-2 border rounded text-sm w-full max-w-md focus:ring-2 focus:ring-blue-500 outline-none"
-          defaultValue=""
-        >
-          <option value="" disabled>
-            Select a product to view reviews
-          </option>
-          {filteredProducts.map((product) => (
-            <option key={product._id} value={product._id}>
-              {product.name} ({product.totalReviews || 0} reviews)
-            </option>
-          ))}
         </select>
       </div>
 

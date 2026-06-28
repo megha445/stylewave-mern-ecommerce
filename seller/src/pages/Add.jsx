@@ -1,9 +1,10 @@
-import React, { useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
+import { ShopContext } from "../context/ShopContext";
 
 const SellerAdd = () => {
+  const { api, handleApiError, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const [image1, setImage1] = useState(null);
   const [image2, setImage2] = useState(null);
   const [image3, setImage3] = useState(null);
@@ -45,7 +46,7 @@ const SellerAdd = () => {
     try {
       const files = [image1, image2, image3, image4].filter(Boolean);
       if (files.length === 0) {
-        toast.error("Please upload at least 1 image");
+        notifyError("Please upload at least 1 image");
         setSubmitting(false);
         return;
       }
@@ -57,7 +58,7 @@ const SellerAdd = () => {
         const sigRes = await api.get("/api/seller/upload/cloudinary-signature");
 
         if (!sigRes.data.success) {
-          toast.error(sigRes.data.message || "Failed to prepare image upload");
+          notifyError(sigRes.data.message || "Failed to prepare image upload");
           setSubmitting(false);
           return;
         }
@@ -94,10 +95,10 @@ const SellerAdd = () => {
         );
 
         if (fallbackRes.data.success) {
-          toast.success("Product added successfully");
+          notifySuccess("Product added successfully");
           resetForm();
         } else {
-          toast.error(fallbackRes.data.message);
+          notifyError(fallbackRes.data.message);
         }
         return;
       }
@@ -116,14 +117,13 @@ const SellerAdd = () => {
       });
 
       if (res.data.success) {
-        toast.success("Product added successfully");
+        notifySuccess("Product added successfully");
         resetForm();
       } else {
-        toast.error(res.data.message);
+        notifyError(res.data.message);
       }
     } catch (err) {
-      console.error("Full error:", err);
-      toast.error(err.response?.data?.message || "Failed to add product");
+      handleApiError(err, "Failed to add product");
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +155,7 @@ const SellerAdd = () => {
           {/* Upload Images Section */}
           <div>
             <p className="text-lg font-semibold text-gray-700 mb-3">
-              Upload Product Images
+              Upload Product Images (1 to 4)
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               {[

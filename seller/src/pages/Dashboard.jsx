@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useEffect, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 import {
   PieChart,
   Pie,
@@ -18,6 +17,8 @@ import AIAssistantPanel from "../components/AIAssistantPanel";
 const COLORS = ["#4ade80", "#60a5fa", "#facc15", "#f87171", "#a78bfa"];
 
 const Dashboard = () => {
+  const { api, formatCurrency, handleApiError, notifyError } =
+    useContext(ShopContext);
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -28,16 +29,15 @@ const Dashboard = () => {
         if (res.data.success) {
           setStats(res.data.stats);
         } else {
-          toast.error("Failed to load dashboard");
+          notifyError("Failed to load dashboard");
         }
       } catch (error) {
-        console.error(error);
-        toast.error("Failed to load dashboard");
+        handleApiError(error, "Failed to load dashboard");
       }
     };
 
     fetchDashboard();
-  }, []);
+  }, [api, handleApiError, notifyError]);
 
   if (!stats) {
     return (
@@ -66,7 +66,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Card title="Total Orders" value={stats.totalOrders} />
         <Card title="Pending Orders" value={stats.pendingOrders} />
-        <Card title="Revenue" value={`₹${stats.totalRevenue}`} />
+        <Card title="Revenue" value={formatCurrency(stats.totalRevenue)} />
       </div>
 
       {/* CHARTS */}
@@ -110,6 +110,56 @@ const Dashboard = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        </div>
+        <div className="p-6 bg-white rounded shadow mt-6">
+        <h3 className="mb-4 text-xl font-semibold">🔥 Top Selling Products</h3>
+        {stats.topProducts && stats.topProducts.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stats.topProducts.map((product, index) => (
+                  <tr key={product._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
+                        index === 0 ? "bg-yellow-100 text-yellow-800" :
+                        index === 1 ? "bg-gray-100 text-gray-800" :
+                        index === 2 ? "bg-orange-100 text-orange-800" :
+                        "bg-blue-100 text-blue-800"
+                      }`}>
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{product.productName}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-gray-900">{product.totalQuantity} units</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-green-600">{formatCurrency(product.totalRevenue)}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {product.orderCount} orders
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-center text-gray-500 py-8">No sales data available yet</p>
+        )}
       </div>
     </div>
   );

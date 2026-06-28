@@ -1,11 +1,9 @@
 import React, { useContext, useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
-import { connectSocket } from "../lib/socket";
 import { ShopContext } from "../context/ShopContext";
 
 const PendingProducts = () => {
-  const { currency } = useContext(ShopContext);
+  const { api, currency, handleApiError, notifyError, notifySuccess, subscribeSocket } =
+    useContext(ShopContext);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -23,11 +21,10 @@ const PendingProducts = () => {
       if (response.data.success) {
         setPendingProducts(response.data.products);
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to load products");
+      handleApiError(error, "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -46,14 +43,13 @@ const PendingProducts = () => {
       const response = await api.put(`/api/product/approve/${id}`, {});
 
       if (response.data.success) {
-        toast.success("Product approved successfully!");
+        notifySuccess("Product approved successfully!");
         fetchPendingProducts();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to approve product");
+      handleApiError(error, "Failed to approve product");
     } finally {
       setActionLoading("");
     }
@@ -64,7 +60,7 @@ const PendingProducts = () => {
   // =========================
   const rejectProduct = async (id) => {
     if (!rejectionReason.trim()) {
-      toast.error("Please provide a reason for rejection");
+      notifyError("Please provide a reason for rejection");
       return;
     }
     setActionLoading(`reject-${id}`);
@@ -75,16 +71,15 @@ const PendingProducts = () => {
       });
 
       if (response.data.success) {
-        toast.success("Product rejected");
+        notifySuccess("Product rejected");
         setSelectedProduct(null);
         setRejectionReason("");
         fetchPendingProducts();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to reject product");
+      handleApiError(error, "Failed to reject product");
     } finally {
       setActionLoading("");
     }
@@ -99,13 +94,8 @@ const PendingProducts = () => {
 
   useEffect(() => {
     fetchPendingProducts();
-    const socket = connectSocket();
-    socket.on("product:changed", fetchPendingProducts);
-
-    return () => {
-      socket.off("product:changed", fetchPendingProducts);
-    };
-  }, []);
+    return subscribeSocket("product:changed", fetchPendingProducts);
+  }, [subscribeSocket]);
 
   if (loading) {
     return (

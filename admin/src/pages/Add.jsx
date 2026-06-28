@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import { ShopContext } from "../context/ShopContext";
 
 const Add = () => {
+  const { api, handleApiError, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const [image1, setImage1] = useState(null);
   const [image2, setImage2] = useState(null);
   const [image3, setImage3] = useState(null);
@@ -20,14 +21,19 @@ const Add = () => {
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    const selectedImages = [image1, image2, image3, image4].filter(Boolean);
+    if (selectedImages.length === 0) {
+      notifyError("Please upload at least 1 product image");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const formData = new FormData();
 
-      image1 && formData.append("image1", image1);
-      image2 && formData.append("image2", image2);
-      image3 && formData.append("image3", image3);
-      image4 && formData.append("image4", image4);
+      selectedImages.forEach((image, index) => {
+        formData.append(`image${index + 1}`, image);
+      });
 
       formData.append("name", name);
       formData.append("description", description);
@@ -40,14 +46,13 @@ const Add = () => {
       const response = await api.post("/api/product/add", formData);
 
       if (response.data.success) {
-        toast.success(response.data.message);
+        notifySuccess(response.data.message);
         resetForm();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Something went wrong");
+      handleApiError(error, "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -78,7 +83,7 @@ const Add = () => {
           {/* Upload Images Section */}
           <div>
             <p className="text-lg font-semibold text-gray-700 mb-3">
-              Upload Product Images
+              Upload Product Images (1 to 4)
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               {[

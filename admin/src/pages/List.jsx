@@ -1,12 +1,10 @@
 import React, { useContext, useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { connectSocket } from "../lib/socket";
 import { ShopContext } from "../context/ShopContext";
 
 const List = () => {
-  const { currency } = useContext(ShopContext);
+  const { api, currency, handleApiError, notifyError, notifySuccess, subscribeSocket } =
+    useContext(ShopContext);
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("platform");
@@ -22,11 +20,10 @@ const List = () => {
       if (response.data.success) {
         setAllProducts(response.data.products);
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error("Fetch error:", error);
-      toast.error(error.response?.data?.message || "Failed to load products");
+      handleApiError(error, "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -41,7 +38,7 @@ const List = () => {
       const response = await api.post("/api/product/remove", { id });
 
       if (response.data.success) {
-        toast.success(response.data.message);
+        notifySuccess(response.data.message);
         fetchListProducts();
       } else {
         // ✅ Active orders exist — offer suspend instead
@@ -53,12 +50,11 @@ const List = () => {
             await handleSuspend(id);
           }
         } else {
-          toast.error(response.data.message);
+          notifyError(response.data.message);
         }
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to remove product");
+      handleApiError(error, "Failed to remove product");
     } finally {
       setActionLoading("");
     }
@@ -70,13 +66,13 @@ const List = () => {
     try {
       const response = await api.put(`/api/product/suspend/${id}`, {});
       if (response.data.success) {
-        toast.success(response.data.message);
+        notifySuccess(response.data.message);
         fetchListProducts();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      toast.error("Failed to suspend product");
+      handleApiError(error, "Failed to suspend product");
     } finally {
       setActionLoading("");
     }
@@ -88,30 +84,37 @@ const List = () => {
     try {
       const response = await api.put(`/api/product/unsuspend/${id}`, {});
       if (response.data.success) {
-        toast.success(response.data.message);
+        notifySuccess(response.data.message);
         fetchListProducts();
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      toast.error("Failed to unsuspend product");
+      handleApiError(error, "Failed to unsuspend product");
     } finally {
       setActionLoading("");
     }
   };
 
+  const handleSuspendToggle = (item) => {
+    if (item.status === "Suspended") {
+      handleUnsuspend(item._id);
+      return;
+    }
+
+    if (item.status === "Approved") {
+      handleSuspend(item._id);
+    }
+  };
+
   useEffect(() => {
     fetchListProducts();
-    const socket = connectSocket();
-    socket.on("product:changed", fetchListProducts);
-    return () => {
-      socket.off("product:changed", fetchListProducts);
-    };
-  }, []);
+    return subscribeSocket("product:changed", fetchListProducts);
+  }, [subscribeSocket]);
 
-  const visibleProducts = allProducts.filter(p => p.status !== "Pending");
-  const platformProducts = visibleProducts.filter(p => p.ownedBy === "platform" || !p.sellerId);
-  const sellerProducts = visibleProducts.filter(p => p.ownedBy === "seller" && p.sellerId);
+  const visibleProducts = allProducts.filter((p) => p.status !== "Pending");
+  const platformProducts = visibleProducts.filter((p) => !p.sellerId);
+  const sellerProducts = visibleProducts.filter((p) => Boolean(p.sellerId));
 
   const filteredPlatformProducts = platformProducts.filter(p =>
     p.name.toLowerCase().includes(platformSearch.toLowerCase()) ||
@@ -124,6 +127,17 @@ const List = () => {
     (p.sellerName && p.sellerName.toLowerCase().includes(sellerSearch.toLowerCase())) ||
     (p.sellerEmail && p.sellerEmail.toLowerCase().includes(sellerSearch.toLowerCase()))
   );
+
+  // ✅ Removed products sink to the bottom of each list
+  const sortByRemoved = (arr) =>
+    [...arr].sort((a, b) => {
+      const aRemoved = a.status === "Removed" ? 1 : 0;
+      const bRemoved = b.status === "Removed" ? 1 : 0;
+      return aRemoved - bRemoved;
+    });
+
+  const sortedPlatformProducts = sortByRemoved(filteredPlatformProducts);
+  const sortedSellerProducts = sortByRemoved(filteredSellerProducts);
 
   // ✅ Status badge with colors for all statuses
   const getStatusBadge = (status) => {
@@ -139,11 +153,15 @@ const List = () => {
 
   // ✅ Render product card
   const renderProductCard = (item) => {
-    // ✅ NEW: true while ANY action (delete/suspend/unsuspend) is running for this product
+    // ✅ true while ANY action (delete/suspend/unsuspend) is running for this product
     const isDeleting = actionLoading === `delete-${item._id}`;
     const isSuspending = actionLoading === `suspend-${item._id}`;
     const isUnsuspending = actionLoading === `unsuspend-${item._id}`;
     const isProductBusy = isDeleting || isSuspending || isUnsuspending;
+    const isSuspended = item.status === "Suspended";
+    const isRemoved = item.status === "Removed";
+    const canEditOrDelete = !isSuspended && !isRemoved;
+    const canToggleSuspend = item.status === "Approved" || isSuspended;
 
     return (
     <div
@@ -171,9 +189,6 @@ const List = () => {
               <b>Product:</b> {item.name}
             </p>
             <p className="text-sm text-gray-600">
-              <b>ProductId:</b> {item._id}
-            </p>
-            <p className="text-sm text-gray-600">
               <b>Category:</b> {item.category} - {item.subCategory}
             </p>
             <p className="text-sm text-gray-600">
@@ -182,7 +197,7 @@ const List = () => {
             <p className="text-sm text-gray-600">
               <b>Stock:</b> {item.stock || 0}
             </p>
-            {item.sellerName && (
+            {item.sellerName!== "Admin" && (
               <p className="text-sm text-gray-600">
                 <b>Seller:</b> {item.sellerName}
               </p>
@@ -190,11 +205,6 @@ const List = () => {
             {item.sellerEmail && (
               <p className="text-sm text-gray-600">
                 <b>Seller email:</b> {item.sellerEmail}
-              </p>
-            )}
-            {item.addedByEmail && (
-              <p className="text-sm text-gray-600">
-                <b>Admin email:</b> {item.addedByEmail}
               </p>
             )}
             <p className="text-sm text-gray-600">
@@ -220,7 +230,7 @@ const List = () => {
         {/* ✅ Action Buttons */}
         <div className="flex flex-col gap-2 ml-4">
           {/* Edit — only for non-removed products */}
-          {item.status !== "Removed" && (
+          {canEditOrDelete && (
             <button
               onClick={() => navigate(`/edit/${item._id}`)}
               disabled={isProductBusy}
@@ -231,7 +241,7 @@ const List = () => {
           )}
 
           {/* Delete button */}
-          {item.status !== "Removed" && (
+          {canEditOrDelete && (
             <button
               onClick={() => handleRemove(item._id)}
               disabled={isProductBusy}
@@ -242,23 +252,37 @@ const List = () => {
           )}
 
           {/* Suspend/Unsuspend — only for approved products */}
-          {item.status === "Approved" && (
+          {canToggleSuspend && (
             <button
-              onClick={() => handleSuspend(item._id)}
+              type="button"
+              onClick={() => handleSuspendToggle(item)}
               disabled={isProductBusy}
-              className="px-3 py-1.5 text-sm text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center justify-between gap-2 px-3 py-1.5 text-sm rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
+                isSuspended
+                  ? "border-green-500 text-green-700 bg-green-50"
+                  : "border-orange-500 text-orange-700 bg-orange-50"
+              }`}
             >
-              {isSuspending ? "Suspending..." : "Suspend"}
-            </button>
-          )}
-
-          {item.status === "Suspended" && (
-            <button
-              onClick={() => handleUnsuspend(item._id)}
-              disabled={isProductBusy}
-              className="px-3 py-1.5 text-sm text-white bg-green-500 rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isUnsuspending ? "Unsuspending..." : "Unsuspend"}
+              <span>
+                {isSuspending
+                  ? "Suspending..."
+                  : isUnsuspending
+                  ? "Unsuspending..."
+                  : isSuspended
+                  ? "Unsuspend"
+                  : "Suspend"}
+              </span>
+              <span
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  isSuspended ? "bg-orange-500" : "bg-green-500"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                    isSuspended ? "translate-x-1" : "translate-x-4"
+                  }`}
+                />
+              </span>
             </button>
           )}
         </div>
@@ -285,7 +309,7 @@ const List = () => {
               : "text-gray-600 hover:text-gray-800"
           }`}
         >
-          Platform Products ({filteredPlatformProducts.length})
+          Platform Products ({sortedPlatformProducts.length})
         </button>
         <button
           onClick={() => setActiveTab("seller")}
@@ -295,7 +319,7 @@ const List = () => {
               : "text-gray-600 hover:text-gray-800"
           }`}
         >
-          Seller Products ({filteredSellerProducts.length})
+          Seller Products ({sortedSellerProducts.length})
         </button>
       </div>
 
@@ -314,12 +338,12 @@ const List = () => {
           <p className="text-sm text-gray-600 mb-4">
             Products added and managed by the platform.
           </p>
-          {filteredPlatformProducts.length === 0 ? (
+          {sortedPlatformProducts.length === 0 ? (
             <div className="text-center py-10 text-gray-500">
               No platform products found
             </div>
           ) : (
-            filteredPlatformProducts.map((product) => renderProductCard(product))
+            sortedPlatformProducts.map((product) => renderProductCard(product))
           )}
         </div>
       )}
@@ -339,12 +363,12 @@ const List = () => {
           <p className="text-sm text-gray-600 mb-4">
             Products added by sellers. You can edit, suspend or remove any product.
           </p>
-          {filteredSellerProducts.length === 0 ? (
+          {sortedSellerProducts.length === 0 ? (
             <div className="text-center py-10 text-gray-500">
               No seller products found
             </div>
           ) : (
-            filteredSellerProducts.map((product) => renderProductCard(product))
+            sortedSellerProducts.map((product) => renderProductCard(product))
           )}
         </div>
       )}

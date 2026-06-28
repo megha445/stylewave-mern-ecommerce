@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
-import { connectSocket } from "../lib/socket";
+import React, { useContext, useEffect, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 
 const Orders = () => {
+  const { api, formatCurrency, handleApiError, notifyError, notifySuccess, subscribeSocket } =
+    useContext(ShopContext);
   const [orders, setOrders] = useState([]);
   const [rejectOrderId, setRejectOrderId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -18,20 +18,19 @@ const Orders = () => {
         setOrders(res.data.orders);
       }
     } catch (error) {
-      toast.error("Failed to load orders");
+      handleApiError(error, "Failed to load orders");
     }
   };
 
   useEffect(() => {
     fetchOrders();
-    const socket = connectSocket();
-    socket.on("order:created", fetchOrders);
-    socket.on("order:updated", fetchOrders);
+    const unsubscribeCreated = subscribeSocket("order:created", fetchOrders);
+    const unsubscribeUpdated = subscribeSocket("order:updated", fetchOrders);
     return () => {
-      socket.off("order:created", fetchOrders);
-      socket.off("order:updated", fetchOrders);
+      unsubscribeCreated();
+      unsubscribeUpdated();
     };
-  }, []);
+  }, [subscribeSocket]);
 
   // ✅ FILTER ORDERS BY CUSTOMER EMAIL OR ORDER ID
   const filteredOrders = orders.filter((order) => {
@@ -62,11 +61,11 @@ const Orders = () => {
       });
 
       if (res.data.success) {
-        toast.success("Order status updated");
+        notifySuccess("Order status updated");
         fetchOrders();
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update");
+      handleApiError(error, "Failed to update");
     } finally {
       setActionLoading("");
     }
@@ -75,7 +74,7 @@ const Orders = () => {
   // ✅ REJECT ORDER
   const rejectOrder = async (orderId) => {
     if (!rejectReason.trim()) {
-      toast.error("Please provide rejection reason");
+      notifyError("Please provide rejection reason");
       return;
     }
     setActionLoading(`reject-${orderId}`);
@@ -86,13 +85,13 @@ const Orders = () => {
       });
 
       if (res.data.success) {
-        toast.success("Order rejected");
+        notifySuccess("Order rejected");
         setRejectOrderId(null);
         setRejectReason("");
         fetchOrders();
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to reject");
+      handleApiError(error, "Failed to reject");
     } finally {
       setActionLoading("");
     }
@@ -144,7 +143,7 @@ const Orders = () => {
                     <b>Customer:</b> {order.userId?.email}
                   </p>
                   <p>
-                    <b>Total:</b> ₹{order.totalPrice}
+                    <b>Total:</b> {formatCurrency(order.totalPrice)}
                   </p>
                   <p>
                     <b>Date:</b> {new Date(order.createdAt).toDateString()}
@@ -190,8 +189,8 @@ const Orders = () => {
                         <b>{item.name}</b>
                       </p>
                       <p>
-                        Qty: {item.quantity} × ₹{item.price} = ₹
-                        {item.price * item.quantity}
+                        Qty: {item.quantity} x {formatCurrency(item.price)} ={" "}
+                        {formatCurrency(item.price * item.quantity)}
                       </p>
                       {item.size && (
                         <p className="text-gray-500">Size: {item.size}</p>

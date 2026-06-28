@@ -1,53 +1,27 @@
 import React, { useContext, useState } from "react";
 import { assets } from "../assets/assets";
-import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
-import api from "../lib/api";
 import { ShopContext } from "../context/ShopContext";
 
 const Login = () => {
-  const { login } = useContext(ShopContext);
+  const { actionLoading, api, handleApiError, login, notifyError, notifySuccess } =
+    useContext(ShopContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
-    try {
-      const response = await api.post("/api/user/seller", { email, password });
-
-      if (response.data.success) {
-        login({
-          name: response.data.seller.name,
-          email: response.data.seller.email,
-          id: response.data.seller.id,
-          shopName: response.data.seller.shopName,
-        });
-        toast.success("Login successful!");
-        navigate("/");
-      } else {
-        toast.error(response.data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(
-        error.response?.data?.message || "Invalid seller credentials"
-      );
-    } finally {
-      setLoading(false);
-    }
+    await login({ email, password });
   };
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
 
     if (!email) {
-      toast.error("Please enter your email address");
+      notifyError("Please enter your email address");
       return;
     }
 
@@ -57,17 +31,14 @@ const Login = () => {
       const response = await api.post("/api/seller/forgot-password", { email });
 
       if (response.data.success) {
-        toast.success("Password has been sent to your email!");
+        notifySuccess("Password has been sent to your email!");
         setShowForgotPassword(false);
         setEmail("");
       } else {
-        toast.error(response.data.message);
+        notifyError(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(
-        error.response?.data?.message || "Failed to send password"
-      );
+      handleApiError(error, "Failed to send password");
     } finally {
       setLoading(false);
     }
@@ -131,9 +102,9 @@ const Login = () => {
               <button
                 className="w-full px-4 py-2 text-white bg-black rounded-md hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 type="submit"
-                disabled={loading}
+                disabled={actionLoading}
               >
-                {loading ? "Logging in..." : "Login"}
+                {actionLoading ? "Logging in..." : "Login"}
               </button>
             </form>
           </>

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
-import { connectSocket } from "../lib/socket";
+import React, { useContext, useEffect, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
 
 const Orders = () => {
+  const { api, formatCurrency, handleApiError, notifyError, notifySuccess, subscribeSocket } =
+    useContext(ShopContext);
   const [allOrders, setAllOrders] = useState([]);
   const [activeTab, setActiveTab] = useState("platform");
   const [cancelOrderId, setCancelOrderId] = useState(null);
@@ -18,20 +18,19 @@ const Orders = () => {
         setAllOrders(res.data.orders);
       }
     } catch (error) {
-      toast.error("Failed to load orders");
+      handleApiError(error, "Failed to load orders");
     }
   };
 
   useEffect(() => {
     fetchOrders();
-    const socket = connectSocket();
-    socket.on("order:created", fetchOrders);
-    socket.on("order:updated", fetchOrders);
+    const unsubscribeCreated = subscribeSocket("order:created", fetchOrders);
+    const unsubscribeUpdated = subscribeSocket("order:updated", fetchOrders);
     return () => {
-      socket.off("order:created", fetchOrders);
-      socket.off("order:updated", fetchOrders);
+      unsubscribeCreated();
+      unsubscribeUpdated();
     };
-  }, []);
+  }, [subscribeSocket]);
 
   const getPlatformOrders = () => {
     return allOrders
@@ -114,13 +113,13 @@ const Orders = () => {
       });
 
       if (res.data.success) {
-        toast.success("Order status updated");
+        notifySuccess("Order status updated");
         fetchOrders();
       } else {
-        toast.error(res.data.message || "Failed to update");
+        notifyError(res.data.message || "Failed to update");
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update");
+      handleApiError(error, "Failed to update");
     } finally {
       setActionLoading("");
     }
@@ -128,7 +127,7 @@ const Orders = () => {
 
   const cancelOrder = async (orderId) => {
     if (!cancelReason.trim()) {
-      toast.error("Please provide cancellation reason");
+      notifyError("Please provide cancellation reason");
       return;
     }
 
@@ -140,15 +139,15 @@ const Orders = () => {
       });
 
       if (res.data.success) {
-        toast.success(`Order cancelled. Reason: ${cancelReason}`);
+        notifySuccess(`Order cancelled. Reason: ${cancelReason}`);
         setCancelOrderId(null);
         setCancelReason("");
         fetchOrders();
       } else {
-        toast.error(res.data.message || "Failed to cancel");
+        notifyError(res.data.message || "Failed to cancel");
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to cancel");
+      handleApiError(error, "Failed to cancel");
     } finally {
       setActionLoading("");
     }
@@ -218,7 +217,7 @@ const Orders = () => {
             {order.cancellationFee > 0 && (
               <div className="mt-3 p-2 bg-red-50 border-l-4 border-red-500 rounded">
                 <p className="text-red-700 text-sm font-semibold">
-                  ⚠️ Cancellation Fee: ₹{order.cancellationFee}
+                  Cancellation Fee: {formatCurrency(order.cancellationFee)}
                 </p>
               </div>
             )}
@@ -286,7 +285,9 @@ const Orders = () => {
 
                       <div>
                         <span className="text-gray-500 block">Price Each</span>
-                        <span className="font-semibold text-gray-800">₹{item.price}</span>
+                        <span className="font-semibold text-gray-800">
+                          {formatCurrency(item.price)}
+                        </span>
                       </div>
 
                       {item.size && (
@@ -299,7 +300,7 @@ const Orders = () => {
                       <div>
                         <span className="text-gray-500 block">Subtotal</span>
                         <span className="font-bold text-green-600">
-                          ₹{item.price * item.quantity}
+                          {formatCurrency(item.price * item.quantity)}
                         </span>
                       </div>
                     </div>
@@ -325,12 +326,12 @@ const Orders = () => {
             <div className="flex justify-between items-center text-lg">
               <span className="text-gray-700 font-semibold">Order Total:</span>
               <span className="text-2xl font-bold text-green-600">
-                ₹{order.displayTotal}
+                {formatCurrency(order.displayTotal)}
               </span>
             </div>
             {order.displayTotal !== order.originalTotal && (
               <p className="text-xs text-gray-500 text-right mt-1">
-                Full order total: ₹{order.originalTotal}
+                Full order total: {formatCurrency(order.originalTotal)}
               </p>
             )}
           </div>

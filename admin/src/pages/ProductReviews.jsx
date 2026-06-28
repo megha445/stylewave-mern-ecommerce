@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
-import api from "../lib/api";
-import { toast } from "react-toastify";
+import React, { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { connectSocket } from "../lib/socket";
+import { ShopContext } from "../context/ShopContext";
 
 const ProductReviews = () => {
+  const { api, handleApiError, notifySuccess, subscribeSocket } =
+    useContext(ShopContext);
   const { productId } = useParams();
   const navigate = useNavigate();
 
@@ -22,8 +22,6 @@ const ProductReviews = () => {
   useEffect(() => {
     fetchProductDetails();
     fetchReviews();
-
-    const socket = connectSocket();
 
     const handleReviewChanged = (payload) => {
       if (String(payload?.productId) !== String(productId)) return;
@@ -46,26 +44,35 @@ const ProductReviews = () => {
       fetchProductDetails();
     };
 
-    socket.on("review:changed", handleReviewChanged);
-    socket.on("reviewDeleted", handleReviewDeleted);
-    socket.on("product:changed", handleProductChanged);
+    const unsubscribeReviewChanged = subscribeSocket(
+      "review:changed",
+      handleReviewChanged
+    );
+    const unsubscribeReviewDeleted = subscribeSocket(
+      "reviewDeleted",
+      handleReviewDeleted
+    );
+    const unsubscribeProductChanged = subscribeSocket(
+      "product:changed",
+      handleProductChanged
+    );
 
     return () => {
-      socket.off("review:changed", handleReviewChanged);
-      socket.off("reviewDeleted", handleReviewDeleted);
-      socket.off("product:changed", handleProductChanged);
+      unsubscribeReviewChanged();
+      unsubscribeReviewDeleted();
+      unsubscribeProductChanged();
     };
-  }, [productId]);
+  }, [productId, subscribeSocket]);
 
   const fetchProductDetails = async () => {
     try {
-      const res = await api.get("/api/product/list");
+      const res = await api.get("");
       if (res.data.success) {
         const prod = res.data.products.find((p) => p._id === productId);
         setProduct(prod);
       }
     } catch (error) {
-      console.error("Failed to fetch product");
+      handleApiError(error, "Failed to fetch product");
     }
   };
 
@@ -80,7 +87,7 @@ const ProductReviews = () => {
         setReviews(res.data.reviews);
       }
     } catch (error) {
-      toast.error("Failed to load reviews");
+      handleApiError(error, "Failed to load reviews");
     } finally {
       setLoading(false);
     }
@@ -95,10 +102,10 @@ const ProductReviews = () => {
       const res = await api.delete(`/api/reviews/admin/delete/${reviewId}`);
 
       if (res.data.success) {
-        toast.success("Review deleted successfully");
+        notifySuccess("Review deleted successfully");
       }
     } catch (error) {
-      toast.error("Failed to delete review");
+      handleApiError(error, "Failed to delete review");
     }
   };
 
