@@ -363,9 +363,12 @@ productRouter.post(
 
 // ✅ List products (public, but filtered based on role)
 productRouter.get("/list", (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
+  const hasAuthToken =
+    req.headers.authorization?.startsWith("Bearer ") ||
+    req.cookies?.admin_token ||
+    req.cookies?.seller_token;
   
-  if (!token) {
+  if (!hasAuthToken) {
     // No token = public user, show only approved
     return next();
   }

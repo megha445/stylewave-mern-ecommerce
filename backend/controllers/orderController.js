@@ -2,9 +2,45 @@ import redisClient from "../config/redis.js";
 import Order from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import productModel from "../models/productModel.js";
+import sellerModel from "../models/sellerModel.js";
 import razorpayInstance, { isRazorpayConfigured } from "../config/razorpay.js";
 import Reservation from "../models/reservationModel.js";
 import { emitToAdmins, emitToSeller, emitToUser } from "../socket.js";
+
+// ===============================
+// ADMIN SCOPING HELPERS
+// ===============================
+const getSellerIdsForAdmin = async (admin) => {
+  const sellers = await sellerModel
+    .find({
+      $or: [
+        { createdByAdminId: admin._id },
+        { createdByAdminEmail: admin.email },
+      ],
+    })
+    .select("_id");
+  return sellers.map((s) => s._id);
+};
+
+const getAdminProductIds = async (admin) => {
+  const sellerIds = await getSellerIdsForAdmin(admin);
+  const products = await productModel
+    .find({
+      $or: [
+        { sellerId: null, addedBy: admin._id },
+        { sellerId: { $in: sellerIds } },
+      ],
+    })
+    .select("_id");
+  return products.map((p) => p._id);
+};
+
+const getAdminPlatformProductIds = async (admin) => {
+  const products = await productModel
+    .find({ sellerId: null, addedBy: admin._id })
+    .select("_id");
+  return products.map((p) => p._id);
+};
 
 const emitOrderEvent = (eventName, order) => {
   if (!order) return;
@@ -119,7 +155,9 @@ export const createOrder = async (req, res) => {
       { status: 'released' }
     );
 
-    await redisClient.del("admin_dashboard");
+    if (redisClient) {
+      await redisClient.del("admin_dashboard");
+    }
     emitOrderEvent("order:created", order);
 
     res.status(201).json({
@@ -202,9 +240,6 @@ export const cancelOrder = async (req, res) => {
       order.razorpay_payment_id;
 
     if (isRazorpayPaid) {
-      console.log("Attempting refund for:", order.razorpay_payment_id);
-      console.log("Refund amount:", order.totalPrice * 100);
-      console.log("Razorpay configured:", isRazorpayConfigured());
       if (!isRazorpayConfigured()) {
         return res.status(503).json({
           message: "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.",
@@ -268,15 +303,40 @@ export const cancelOrder = async (req, res) => {
 };
 
 // ===============================
-// GET ALL ORDERS (ADMIN)
+// GET ALL ORDERS (ADMIN — scoped to this admin)
 // ===============================
 export const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find()
-      .populate("userId", "email")
-      .sort({ createdAt: -1 });
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    res.json({ success: true, orders });
+    const productIds = await getAdminProductIds(req.admin);
+    const sellerIds = await getSellerIdsForAdmin(req.admin);
+
+    const filter = {
+      $or: [
+        { "orderItems.productId": { $in: productIds } },
+        { "orderItems.sellerId": { $in: sellerIds } },
+      ],
+    };
+
+    const total = await Order.countDocuments(filter);
+    const orders = await Order.find(filter)
+      .populate("userId", "email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      success: true,
+      orders,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page < Math.ceil(total / limit),
+      hasPrevPage: page > 1,
+    });
   } catch (error) {
     console.error("ADMIN ORDER ERROR:", error);
     res.status(500).json({ success: false, message: "Failed to fetch orders" });
@@ -284,19 +344,32 @@ export const getAllOrders = async (req, res) => {
 };
 
 // ===============================
-// GET PLATFORM ORDERS
+// GET PLATFORM ORDERS (scoped to this admin)
 // ===============================
 export const getPlatformOrders = async (req, res) => {
   try {
-    const orders = await Order.find({
-      'orderItems.productOwnedBy': 'platform'
-    })
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const platformProductIds = await getAdminPlatformProductIds(req.admin);
+
+    const filter = {
+      'orderItems.productId': { $in: platformProductIds },
+      'orderItems.productOwnedBy': 'platform',
+    };
+
+    const total = await Order.countDocuments(filter);
+    const orders = await Order.find(filter)
       .populate("userId", "email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     const filteredOrders = orders.map(order => {
       const platformItems = order.orderItems.filter(
-        item => item.productOwnedBy === 'platform'
+        item => item.productOwnedBy === 'platform' &&
+          platformProductIds.some(pid => pid.equals(item.productId))
       );
 
       if (platformItems.length === 0) return null;
@@ -313,7 +386,7 @@ export const getPlatformOrders = async (req, res) => {
       };
     }).filter(order => order !== null);
 
-    res.json({ success: true, orders: filteredOrders });
+    res.json({ success: true, orders: filteredOrders, total, page, totalPages: Math.ceil(total / limit), hasNextPage: page < Math.ceil(total / limit), hasPrevPage: page > 1 });
   } catch (error) {
     console.error("PLATFORM ORDER ERROR:", error);
     res.status(500).json({ success: false, message: "Failed to fetch platform orders" });
@@ -321,19 +394,33 @@ export const getPlatformOrders = async (req, res) => {
 };
 
 // ===============================
-// GET SELLER ORDERS (ADMIN VIEW)
+// GET SELLER ORDERS (ADMIN VIEW — scoped to this admin's sellers)
 // ===============================
 export const getSellerOrders = async (req, res) => {
   try {
-    const orders = await Order.find({
-      'orderItems.productOwnedBy': 'seller'
-    })
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const sellerIds = await getSellerIdsForAdmin(req.admin);
+
+    const filter = {
+      'orderItems.sellerId': { $in: sellerIds },
+      'orderItems.productOwnedBy': 'seller',
+    };
+
+    const total = await Order.countDocuments(filter);
+    const orders = await Order.find(filter)
       .populate("userId", "email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     const filteredOrders = orders.map(order => {
       const sellerItems = order.orderItems.filter(
-        item => item.productOwnedBy === 'seller' && item.sellerId
+        item => item.productOwnedBy === 'seller' &&
+          item.sellerId &&
+          sellerIds.some(sid => sid.equals(item.sellerId))
       );
 
       if (sellerItems.length === 0) return null;
@@ -350,7 +437,7 @@ export const getSellerOrders = async (req, res) => {
       };
     }).filter(order => order !== null);
 
-    res.json({ success: true, orders: filteredOrders });
+    res.json({ success: true, orders: filteredOrders, total, page, totalPages: Math.ceil(total / limit), hasNextPage: page < Math.ceil(total / limit), hasPrevPage: page > 1 });
   } catch (error) {
     console.error("SELLER ORDER ERROR:", error);
     res.status(500).json({ success: false, message: "Failed to fetch seller orders" });
@@ -358,7 +445,7 @@ export const getSellerOrders = async (req, res) => {
 };
 
 // ===============================
-// UPDATE ORDER STATUS (ADMIN)
+// UPDATE ORDER STATUS (ADMIN — with ownership check)
 // ===============================
 export const updateOrderStatus = async (req, res) => {
   try {
@@ -374,6 +461,22 @@ export const updateOrderStatus = async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // 🔒 Verify this admin owns at least one item in the order
+    const productIds = await getAdminProductIds(req.admin);
+    const sellerIds = await getSellerIdsForAdmin(req.admin);
+    const ownsItem = order.orderItems.some(
+      (item) =>
+        productIds.some((pid) => pid.equals(item.productId)) ||
+        (item.sellerId && sellerIds.some((sid) => sid.equals(item.sellerId)))
+    );
+
+    if (!ownsItem) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to update this order.",
+      });
     }
 
     const currentStatus = order.status;
@@ -407,7 +510,9 @@ export const updateOrderStatus = async (req, res) => {
       order.canBeRejected = false;
       order.updatedAt = Date.now();
       await order.save();
-      await redisClient.del("admin_dashboard");
+      if (redisClient) {
+        await redisClient.del(`admin_dashboard_${req.admin._id}`);
+      }
       emitOrderEvent("order:updated", order);
 
       return res.json({ success: true, message: "Order cancelled successfully", order });
@@ -438,7 +543,9 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     await order.save();
-    await redisClient.del("admin_dashboard");
+    if (redisClient) {
+      await redisClient.del(`admin_dashboard_${req.admin._id}`);
+    }
     emitOrderEvent("order:updated", order);
 
     res.json({ success: true, message: "Order status updated successfully", order });
@@ -449,32 +556,54 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 // ===============================
-// GET ADMIN DASHBOARD
+// GET ADMIN DASHBOARD (scoped to this admin)
 // ===============================
 export const getAdminDashboard = async (req, res) => {
   try {
+    const cacheKey = `admin_dashboard_${req.admin._id}`;
+
     // 🔹 1. Check Redis cache
-    const cached = await redisClient.get("admin_dashboard");
+    let cached = null;
+    if (redisClient) {
+      cached = await redisClient.get(cacheKey);
+    }
     if (cached) {
       return res.json({ success: true, stats: JSON.parse(cached) });
     }
 
-    // 🔹 2. DB calculations
-    const totalOrders = await Order.countDocuments();
+    // 🔹 2. Get this admin's product IDs and seller IDs
+    const productIds = await getAdminProductIds(req.admin);
+    const sellerIds = await getSellerIdsForAdmin(req.admin);
+
+    // 🔹 3. Build filter for orders belonging to this admin
+    const orderFilter = {
+      $or: [
+        { "orderItems.productId": { $in: productIds } },
+        { "orderItems.sellerId": { $in: sellerIds } },
+      ],
+    };
+
+    const totalOrders = await Order.countDocuments(orderFilter);
     const totalUsers = await userModel.countDocuments();
 
     const revenueAgg = await Order.aggregate([
-      { $match: { status: "DELIVERED" } },
+      { $match: { ...orderFilter, status: "DELIVERED" } },
       { $group: { _id: null, total: { $sum: "$totalPrice" } } },
     ]);
 
     const statusCounts = await Order.aggregate([
+      { $match: orderFilter },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
     const topProducts = await Order.aggregate([
-      { $match: { status: "DELIVERED" } },
+      { $match: { ...orderFilter, status: "DELIVERED" } },
       { $unwind: "$orderItems" },
+      {
+        $match: {
+          "orderItems.productId": { $in: productIds },
+        },
+      },
       {
         $group: {
           _id: "$orderItems.productId",
@@ -498,8 +627,10 @@ export const getAdminDashboard = async (req, res) => {
       topProducts,
     };
 
-    // 🔹 3. Cache for 5 minutes
-    await redisClient.setEx("admin_dashboard", 300, JSON.stringify(stats));
+    // 🔹 4. Cache for 5 minutes with admin-specific key
+    if (redisClient) {
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(stats));
+    }
 
     res.json({ success: true, stats });
   } catch (error) {

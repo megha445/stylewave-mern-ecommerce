@@ -124,32 +124,31 @@ export const sendForgotPasswordEmail = async (sellerEmail, sellerName, tempPassw
 };
 
 // 3. User forgot password
-export const sendUserForgotPasswordEmail = async (userEmail, userName, tempPassword) => {
+export const sendUserForgotPasswordEmail = async (userEmail, userName, token) => {
   try {
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
     await sendEmail(
       userEmail,
-      "Your Temporary Password - Style wave",
+      "Reset Your Password - Style wave",
       `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #2d3748; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
-            <h1>Password Recovery</h1>
+            <h1>Password Reset Request</h1>
           </div>
           <div style="background-color: white; padding: 30px; border-radius: 0 0 5px 5px;">
             <h2>Hello ${userName},</h2>
-            <p>Here is your temporary password:</p>
+            <p>We received a request to reset your password. Click the button below to set a new password:</p>
             <div style="background-color: #edf2f7; padding: 20px; border-left: 4px solid #4299e1; margin: 20px 0;">
-              <p style="font-size: 18px; font-weight: bold; color: #2d3748; letter-spacing: 2px;">${tempPassword}</p>
+              <a href="${resetUrl}" style="display: inline-block; padding: 12px 30px; background-color: #2d3748; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Reset Password
+              </a>
             </div>
-            <div style="background-color: #fff5f5; border-left: 4px solid #fc8181; padding: 15px; margin-top: 20px;">
-              <p><strong>🔒 Please change this password after logging in.</strong></p>
-            </div>
-            <a href="${process.env.FRONTEND_URL}/login" style="display: inline-block; padding: 12px 30px; background-color: #2d3748; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">
-              Login Now
-            </a>
-            <p style="margin-top: 30px;">Best regards,<br><strong>Style wave Team</strong></p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #6b7280;">
+              If you did not request this, please ignore this email. This token will expire in 1 hour.
+            </p>
           </div>
         </div>`
     );
-    console.log(`✅ Temporary password sent to ${userEmail}`);
+    console.log(`✅ Password reset email sent to ${userEmail}`);
     return { success: true };
   } catch (error) {
     console.error("❌ Email sending failed:", error);

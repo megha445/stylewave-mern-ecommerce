@@ -1,7 +1,7 @@
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.COOKIE_SECURE === "true",
-  sameSite: process.env.COOKIE_SAME_SITE || "lax",
+  secure: process.env.NODE_ENV === 'production' ? true : process.env.COOKIE_SECURE === "true",
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : process.env.COOKIE_SAME_SITE || "lax",
   path: "/",
 };
 

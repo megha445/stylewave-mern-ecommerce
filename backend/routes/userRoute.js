@@ -5,6 +5,7 @@ import {
   loginAdmin,
   loginSeller,
   forgotPassword,
+  resetPassword,
   changePasswordUser,
   logoutAdmin,
   logoutSeller,
@@ -278,22 +279,183 @@ userRouter.post("/register", authLimiter, registerUser);
 userRouter.post("/login", authLimiter, loginUser);
 
 // ADMIN LOGIN
+/**
+ * @swagger
+ * /api/user/admin:
+ *   post:
+ *     summary: Admin login
+ *     tags: [User]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: "admin@stylewave.com"
+ *               password:
+ *                 type: string
+ *                 example: "adminpass123"
+ *     responses:
+ *       200:
+ *         description: Admin logged in successfully
+ */
+/**
+ * @swagger
+ * /api/user/admin/logout:
+ *   post:
+ *     summary: Admin logout
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin logout successful
+ */
+/**
+ * @swagger
+ * /api/user/admin/session:
+ *   get:
+ *     summary: Check admin session
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin session is valid
+ */
+/**
+ * @swagger
+ * /api/user/admin/me:
+ *   get:
+ *     summary: Get admin profile
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin profile retrieved
+ */
 userRouter.post("/admin", authLimiter, loginAdmin);
-userRouter.post("/admin/logout", logoutAdmin);
-userRouter.get("/admin/session", checkAdminSession);
+userRouter.post("/admin/logout", adminAuth, logoutAdmin);
+userRouter.get("/admin/session", adminAuth, checkAdminSession);
 userRouter.get("/admin/me", adminAuth, getAdminMe);
 
 //SELLER LOGIN
+/**
+ * @swagger
+ * /api/user/seller:
+ *   post:
+ *     summary: Seller login
+ *     tags: [User]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: "seller@stylewave.com"
+ *               password:
+ *                 type: string
+ *                 example: "sellerpass123"
+ *     responses:
+ *       200:
+ *         description: Seller logged in successfully
+ */
+/**
+ * @swagger
+ * /api/user/seller/logout:
+ *   post:
+ *     summary: Seller logout
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Seller logout successful
+ */
+/**
+ * @swagger
+ * /api/user/seller/session:
+ *   get:
+ *     summary: Check seller session
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Seller session is valid
+ */
+/**
+ * @swagger
+ * /api/user/seller/me:
+ *   get:
+ *     summary: Get seller profile
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Seller profile retrieved
+ */
 userRouter.post("/seller", authLimiter, loginSeller);
-userRouter.post("/seller/logout", logoutSeller);
-userRouter.get("/seller/session", checkSellerSession);
+userRouter.post("/seller/logout", sellerAuth, logoutSeller);
+userRouter.get("/seller/session", sellerAuth, checkSellerSession);
 userRouter.get("/seller/me", sellerAuth, getSellerMe);
 
 // USER LOGOUT
+/**
+ * @swagger
+ * /api/user/logout:
+ *   post:
+ *     summary: User logout
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
 userRouter.post("/logout", logoutUser);
 
 //USER FORGOT PASSWORD
 userRouter.post("/forgot-password", passwordLimiter, forgotPassword);
+
+//RESET PASSWORD
+/**
+ * @swagger
+ * /api/user/reset-password:
+ *   post:
+ *     summary: Reset password with token
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, newPassword]
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 example: "reset_token_123"
+ *               newPassword:
+ *                 type: string
+ *                 example: "newpassword123"
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ */
+userRouter.post("/reset-password", authLimiter, resetPassword);
 
 //CHANGE PASSWORD
 userRouter.post("/change-password-user", passwordLimiter, protect, changePasswordUser);

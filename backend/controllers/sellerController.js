@@ -5,6 +5,9 @@ import validator from "validator";
 import productModel from "../models/productModel.js";
 import { sendSellerCredentials, sendForgotPasswordEmail, sendNewProductNotificationToAdmin } from "../config/email.js";
 import { emitToAdmins, emitToSeller } from "../socket.js";
+import Order from "../models/orderModel.js";
+import userModel from "../models/userModel.js";
+import redisClient from "../config/redis.js";
 
 const getAdminContact = (admin) => ({
   name: admin?.name || "Stylewave Admin",
@@ -23,6 +26,13 @@ const emitSellerProductChanged = (product, action) => {
   if (product.sellerId) {
     emitToSeller(product.sellerId.toString(), "product:changed", payload);
   }
+};
+
+const clearProductCache = async () => {
+  if (!redisClient) return;
+  await redisClient.del("products");
+  await redisClient.del("approved_products");
+  await redisClient.del("approved_products_p1");
 };
 // ADD SELLER (Admin only)
 const addSeller = async (req, res) => {
@@ -64,7 +74,6 @@ const addSeller = async (req, res) => {
     // ✅ SEND EMAIL WITH CREDENTIALS
     try {
       await sendSellerCredentials(email, name, password, getAdminContact(req.admin));
-      console.log(`📧 Credentials email sent to ${email}`);
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
       return res.status(201).json({
@@ -98,10 +107,17 @@ const addSeller = async (req, res) => {
   }
 };
 
-// GET ALL SELLERS (Admin only)
+// GET ALL SELLERS (Admin only — scoped to this admin's sellers)
 const listSellers = async (req, res) => {
   try {
-    const sellers = await sellerModel.find({}).select("-password");
+    const sellers = await sellerModel
+      .find({
+        $or: [
+          { createdByAdminId: req.admin._id },
+          { createdByAdminEmail: req.admin.email },
+        ],
+      })
+      .select("-password");
     res.json({ success: true, sellers });
   } catch (error) {
     console.error(error);
@@ -109,26 +125,40 @@ const listSellers = async (req, res) => {
   }
 };
 
-// UPDATE SELLER (Admin only)
+// UPDATE SELLER (Admin only — with ownership check)
 const updateSeller = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, shopName, phone, isActive } = req.body;
 
-    const seller = await sellerModel.findByIdAndUpdate(
-      id,
-      { name, email, shopName, phone, isActive },
-      { new: true }
-    ).select("-password");
-
+    // Verify this seller belongs to the logged-in admin
+    const seller = await sellerModel.findById(id);
     if (!seller) {
       return res.json({ success: false, message: "Seller not found" });
     }
 
+    const isOwner =
+      String(seller.createdByAdminId || "") === String(req.admin._id) ||
+      seller.createdByAdminEmail === req.admin.email;
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
+    }
+
+    seller.name = name ?? seller.name;
+    seller.email = email ?? seller.email;
+    seller.shopName = shopName ?? seller.shopName;
+    seller.phone = phone ?? seller.phone;
+    if (isActive !== undefined) seller.isActive = isActive;
+    await seller.save();
+
+    const { password: _, ...sellerData } = seller.toObject();
     res.json({
       success: true,
       message: "Seller updated successfully",
-      seller,
+      seller: sellerData,
     });
   } catch (error) {
     console.error(error);
@@ -136,16 +166,27 @@ const updateSeller = async (req, res) => {
   }
 };
 
-// DELETE SELLER (Admin only)
+// DELETE SELLER (Admin only — with ownership check)
 const deleteSeller = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const seller = await sellerModel.findByIdAndDelete(id);
-
+    const seller = await sellerModel.findById(id);
     if (!seller) {
       return res.json({ success: false, message: "Seller not found" });
     }
+
+    const isOwner =
+      String(seller.createdByAdminId || "") === String(req.admin._id) ||
+      seller.createdByAdminEmail === req.admin.email;
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
+    }
+
+    await sellerModel.findByIdAndDelete(id);
 
     res.json({
       success: true,
@@ -157,53 +198,6 @@ const deleteSeller = async (req, res) => {
   }
 };
 
-// RESET SELLER PASSWORD (Admin only)
-const resetSellerPassword = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { newPassword } = req.body;
-
-    if (newPassword.length < 8) {
-      return res.json({
-        success: false,
-        message: "Password must be at least 8 characters",
-      });
-    }
-
-    const seller = await sellerModel.findById(id);
-
-    if (!seller) {
-      return res.json({ success: false, message: "Seller not found" });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    seller.password = hashedPassword;
-    await seller.save();
-
-    // Send email with new password
-    try {
-      await sendSellerCredentials(
-        seller.email,
-        seller.name,
-        newPassword,
-        getAdminContact(req.admin)
-      );
-      console.log(`📧 Password reset email sent to ${seller.email}`);
-    } catch (emailError) {
-      console.error("Email sending failed:", emailError);
-    }
-
-    res.json({
-      success: true,
-      message: "Password reset successfully. New credentials sent via email.",
-    });
-  } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: error.message });
-  }
-};
 
 const changePassword = async (req, res) => {
   try {
@@ -366,6 +360,13 @@ const addProduct = async (req, res) => {
       });
     }
 
+    if (imagesUrl.length > 4) {
+      return res.status(400).json({
+        success: false,
+        message: "You can upload a maximum of 4 product images",
+      });
+    }
+
     // Create product with seller email
     const product = new productModel({
       name: req.body.name,
@@ -384,6 +385,7 @@ const addProduct = async (req, res) => {
     });
 
     await product.save();
+    await clearProductCache();
     emitSellerProductChanged(product, "created-pending");
 
     const seller = await sellerModel.findById(req.seller._id);
@@ -397,15 +399,6 @@ const addProduct = async (req, res) => {
       );
     }
 
-    console.log("✅ Product created:", {
-      _id: product._id,
-      name: product.name,
-      sellerId: product.sellerId,
-      sellerName: product.sellerName,
-      sellerEmail: product.sellerEmail, // ✅ ADD THIS
-      ownedBy: product.ownedBy,
-      status: product.status
-    });
 
     res.status(201).json({
       success: true,
@@ -425,7 +418,6 @@ const addProduct = async (req, res) => {
     // ✅ Get sellerId from middleware
     const sellerId = req.body.sellerId; // This comes from sellerAuth middleware
     
-    console.log("🔍 Fetching products for seller ID:", sellerId); // Debug
 
     if (!sellerId) {
       return res.status(400).json({
@@ -435,22 +427,23 @@ const addProduct = async (req, res) => {
     }
 
     // ✅ Query products where sellerId matches
-    const products = await productModel.find({ 
-      sellerId: sellerId 
-    });
+    const activeProducts = await productModel
+      .find({
+        sellerId: sellerId,
+        status: { $ne: "Removed" },
+      })
+      .sort({ createdAt: -1 });
 
-    console.log("📦 Found products:", products.length); // Debug
+    const removedProducts = await productModel
+      .find({
+        sellerId: sellerId,
+        status: "Removed",
+      })
+      .sort({ createdAt: -1 });
+
+    const products = [...activeProducts, ...removedProducts];
+
     
-    // Debug: Show first product
-    if (products.length > 0) {
-      console.log("Sample product:", {
-        _id: products[0]._id,
-        name: products[0].name,
-        sellerId: products[0].sellerId,
-        sellerName: products[0].sellerName,
-        status: products[0].status
-      });
-    }
 
     res.json({
       success: true,
@@ -479,6 +472,16 @@ const updateSellerProduct = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Product not found or you don't have permission to edit it",
+      });
+    }
+
+    if (!["Pending", "Rejected"].includes(product.status)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          product.status === "Suspended"
+            ? "This product is suspended by admin and cannot be edited."
+            : "This product cannot be edited from the seller panel.",
       });
     }
 
@@ -524,6 +527,7 @@ const updateSellerProduct = async (req, res) => {
       },
       { new: true }
     );
+    await clearProductCache();
     emitSellerProductChanged(updatedProduct, "updated-pending");
 
     const seller = await sellerModel.findById(req.seller._id);
@@ -547,14 +551,14 @@ const updateSellerProduct = async (req, res) => {
   }
 };
 // Delete seller's own product
+// Delete seller's own product (SOFT DELETE)
 const deleteSellerProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // ✅ FIXED: Use _id
-    const product = await productModel.findOne({ 
-      _id: id, 
-      sellerId: req.seller._id // ✅ FIXED
+
+    const product = await productModel.findOne({
+      _id: id,
+      sellerId: req.seller._id,
     });
 
     if (!product) {
@@ -564,12 +568,53 @@ const deleteSellerProduct = async (req, res) => {
       });
     }
 
-    await productModel.findByIdAndDelete(id);
+    if (product.status === "Removed") {
+      return res.status(400).json({
+        success: false,
+        message: "Product is already removed",
+      });
+    }
+
+    if (!["Pending", "Rejected"].includes(product.status)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          product.status === "Suspended"
+            ? "This product is suspended by admin and cannot be deleted."
+            : "This product cannot be deleted from the seller panel.",
+      });
+    }
+
+    // ✅ Same active-order guard as admin's removeProduct
+    const activeOrders = await Order.find({
+      "orderItems.productId": product._id,
+      status: { $in: ["PLACED", "PROCESSING", "SHIPPED"] },
+    });
+
+    if (activeOrders.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete. ${activeOrders.length} active order(s) exist.`,
+        activeOrders: activeOrders.length,
+      });
+    }
+
+    // ✅ Soft delete instead of hard delete
+    product.status = "Removed";
+    await product.save();
+
+    // ✅ Clean up from all user carts, same as admin flow
+    await userModel.updateMany(
+      { [`cartData.${id}`]: { $exists: true } },
+      { $unset: { [`cartData.${id}`]: "" } }
+    );
+
+    await clearProductCache();
     emitSellerProductChanged(product, "deleted");
 
     res.json({
       success: true,
-      message: "Product deleted successfully",
+      message: "Product removed successfully",
     });
   } catch (err) {
     console.error("❌ Delete Product Error:", err);
@@ -583,7 +628,6 @@ export {
   listSellers,
   updateSeller,
   deleteSeller,
-  resetSellerPassword,
   changePassword,
   forgotPassword,
   addProduct,

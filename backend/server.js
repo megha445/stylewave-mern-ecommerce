@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import "./config/env.js";
@@ -22,6 +23,8 @@ import productModel from './models/productModel.js';
 import { sendLowStockEmail } from './config/email.js';
 import { emitToAdmins, emitToSeller, initSocket } from "./socket.js";
 import { apiLimiter } from "./middleware/rateLimiters.js";
+import { validateEnv } from "./config/validateEnv.js";
+validateEnv();
 
 const app = express();
 const httpServer = createServer(app);
@@ -37,6 +40,7 @@ startBestSellerCron();
 
 // Middleware
 app.use(express.json());
+app.use(helmet());
 app.use(cookieParser());
 app.use(cors({
   origin: function(origin, callback) {

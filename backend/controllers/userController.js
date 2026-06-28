@@ -4,6 +4,7 @@ import sellerModel from "../models/sellerModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import validator from "validator";
+import crypto from "crypto";
 import { sendUserForgotPasswordEmail } from "../config/email.js";
 import {
   setAuthCookie,
@@ -225,40 +226,41 @@ const forgotPassword = async (req, res) => {
     const user = await userModel.findOne({ email });
 
     if (!user) {
+      // To prevent email enumeration, we still return success but do nothing
       return res.json({
-        success: false,
-        message: "No account found with this email",
+        success: true,
+        message: "If an account exists with that email, you will receive a reset link.",
       });
     }
 
-    // Generate a temporary password
-    const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase();
+    // Generate random token
+    const token = crypto.randomBytes(32).toString('hex');
+    // Hash token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Hash the temporary password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(tempPassword, salt);
+    // Set token and expiry (1 hour)
+    user.resetToken = hashedToken;
+    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
 
-    // Update user password
-    user.password = hashedPassword;
     await user.save();
 
-    // Send email with new temporary password
+    // Send reset email
     try {
-      await sendUserForgotPasswordEmail(user.email, user.name, tempPassword);
-      
+      await sendUserForgotPasswordEmail(user.email, user.name, token);
+
       res.json({
         success: true,
-        message: "A temporary password has been sent to your email",
+        message: "If an account exists with that email, you will receive a reset link.",
       });
     } catch (emailError) {
-      console.error("Failed to send email:", emailError);
+      console.error("Failed to send reset email:", emailError);
       res.json({
         success: false,
         message: "Failed to send email. Please try again.",
       });
     }
   } catch (error) {
-    console.error(error);
+    console.error("Forgot password error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -266,11 +268,6 @@ const forgotPassword = async (req, res) => {
 const changePasswordUser = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
-    // Debug logs
-    console.log("Request body:", req.body);
-    console.log("Current password received:", currentPassword);
-    console.log("New password received:", newPassword);
 
     // Validate input
     if (!currentPassword || !newPassword) {
@@ -287,8 +284,6 @@ const changePasswordUser = async (req, res) => {
       });
     }
 
-    console.log("User from middleware:", req.user._id);
-
     // Fetch user WITH password (middleware excluded it)
     const user = await userModel.findById(req.user._id);
 
@@ -298,9 +293,6 @@ const changePasswordUser = async (req, res) => {
         message: "User not found",
       });
     }
-
-    console.log("User found:", user._id);
-    console.log("User has password hash:", !!user.password); // Should be true
 
     // Check if user.password exists
     if (!user.password) {
@@ -344,8 +336,6 @@ const changePasswordUser = async (req, res) => {
     // Update password
     user.password = hashedPassword;
     await user.save();
-
-    console.log("Password changed successfully for user:", user._id);
 
     res.json({
       success: true,
@@ -435,12 +425,73 @@ const getSellerMe = (req, res) => {
   });
 };
 
+// RESET PASSWORD
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.json({
+        success: false,
+        message: "Token and new password are required",
+      });
+    }
+
+    // Hash token to compare with stored hash
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user by hashed token and expiry > now
+    const user = await userModel.findOne({
+      resetToken: hashedToken,
+      resetTokenExpiry: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "Invalid or expired token",
+      });
+    }
+
+    // Validate new password length
+    if (newPassword.length < 8) {
+      return res.json({
+        success: false,
+        message: "Password must be at least 8 characters",
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password and clear token fields
+    user.password = hashedPassword;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password has been reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 export {
   registerUser,
   loginUser,
   loginAdmin,
   loginSeller,
   forgotPassword,
+  resetPassword,
   changePasswordUser,
   logoutAdmin,
   logoutSeller,

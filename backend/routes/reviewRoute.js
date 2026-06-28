@@ -143,6 +143,85 @@ const reviewRouter = express.Router();
 reviewRouter.get("/product/:productId", getProductReviews);
 
 // ✅ User routes - Protected
+/**
+ * @swagger
+ * /api/reviews/add:
+ *   post:
+ *     summary: Add a review for a product (User only)
+ *     tags: [Reviews]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [productId, rating, comment]
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 example: "64abc123..."
+ *               rating:
+ *                 type: number
+ *                 example: 4
+ *               comment:
+ *                 type: string
+ *                 example: "Great product!"
+ *     responses:
+ *       200:
+ *         description: Review added successfully
+ */
+/**
+ * @swagger
+ * /api/reviews/edit/{reviewId}:
+ *   put:
+ *     summary: Edit a review (User only)
+ *     tags: [Reviews]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rating, comment]
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 example: 5
+ *               comment:
+ *                 type: string
+ *                 example: "Even better than before!"
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ */
+/**
+ * @swagger
+ * /api/reviews/can-review/{productId}:
+ *   get:
+ *     summary: Check if user can review a product
+ *     tags: [Reviews]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Returns canReview true or false
+ */
 reviewRouter.post("/add", mutationLimiter, protect, addReview);
 reviewRouter.put("/edit/:reviewId", mutationLimiter, protect, editReview);
 reviewRouter.get("/can-review/:productId", protect, canUserReview);

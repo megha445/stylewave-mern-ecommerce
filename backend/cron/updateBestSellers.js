@@ -86,8 +86,11 @@ const updateBestSellers = async () => {
     }
 
     // Clear Redis cache
-    await redisClient.del("approved_products");
-    await redisClient.del("products");
+    if (redisClient) {
+      await redisClient.del("approved_products");
+      await redisClient.del("products");
+      await redisClient.del("approved_products_p1");
+    }
     emitToAll("product:changed", { action: "bestSeller-updated" });
   } catch (error) {
     console.error("❌ Best Sellers cron error:", error.message);

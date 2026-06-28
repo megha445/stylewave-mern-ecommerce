@@ -22,9 +22,8 @@ export const apiLimiter = rateLimit({
 export const authLimiter = rateLimit({
   ...baseOptions,
   windowMs: 15 * 60 * 1000,
-  limit: 10,
-  skipSuccessfulRequests: true,
-  handler: jsonHandler("Too many authentication attempts. Please try again later."),
+  limit: 5,
+  handler: jsonHandler("Too many requests from this IP, please try again after 15 minutes."),
 });
 
 export const passwordLimiter = rateLimit({

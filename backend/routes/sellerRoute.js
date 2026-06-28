@@ -5,7 +5,6 @@ import {
   listSellers,
   updateSeller,
   deleteSeller,
-  resetSellerPassword,
   changePassword,
   forgotPassword,
   addProduct,
@@ -437,7 +436,6 @@ sellerRouter.post("/add", mutationLimiter, adminAuth, addSeller);
 sellerRouter.get("/list", adminAuth, listSellers);
 sellerRouter.put("/update/:id", mutationLimiter, adminAuth, updateSeller);
 sellerRouter.delete("/delete/:id", mutationLimiter, adminAuth, deleteSeller);
-sellerRouter.put("/reset-password/:id", passwordLimiter, adminAuth, resetSellerPassword);
 
 // ✅ Seller product routes
 sellerRouter.post(

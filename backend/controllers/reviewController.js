@@ -1,7 +1,36 @@
 import reviewModel from "../models/reviewModel.js";
 import productModel from "../models/productModel.js";
+import sellerModel from "../models/sellerModel.js";
 import Order from "../models/orderModel.js";
 import { emitToAdmins, emitToAll, emitToSeller } from "../socket.js";
+
+// ===============================
+// ADMIN SCOPING HELPERS
+// ===============================
+const getSellerIdsForAdmin = async (admin) => {
+  const sellers = await sellerModel
+    .find({
+      $or: [
+        { createdByAdminId: admin._id },
+        { createdByAdminEmail: admin.email },
+      ],
+    })
+    .select("_id");
+  return sellers.map((s) => s._id);
+};
+
+const getAdminProductIds = async (admin) => {
+  const sellerIds = await getSellerIdsForAdmin(admin);
+  const products = await productModel
+    .find({
+      $or: [
+        { sellerId: null, addedBy: admin._id },
+        { sellerId: { $in: sellerIds } },
+      ],
+    })
+    .select("_id");
+  return products.map((p) => p._id);
+};
 
 const getProductRatingStats = async (productId) => {
   const product = await productModel
@@ -258,13 +287,29 @@ export const getProductReviews = async (req, res) => {
 };
 
 // ===============================
-// GET ALL REVIEWS (Admin)
+// GET ALL REVIEWS (Admin — scoped to this admin's products)
 // ===============================
 export const getAllReviews = async (req, res) => {
   try {
     const { productId } = req.query;
 
-    const query = productId ? { productId } : {};
+    let query;
+    if (productId) {
+      // If filtering by a specific product, verify admin owns it
+      const adminProductIds = await getAdminProductIds(req.admin);
+      const isOwned = adminProductIds.some((pid) => pid.equals(productId));
+      if (!isOwned) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have access to reviews for this product.",
+        });
+      }
+      query = { productId };
+    } else {
+      // Return reviews only for this admin's products
+      const adminProductIds = await getAdminProductIds(req.admin);
+      query = { productId: { $in: adminProductIds } };
+    }
 
     const reviews = await reviewModel
       .find(query)
@@ -335,7 +380,7 @@ export const getSellerProductReviews = async (req, res) => {
 };
 
 // ===============================
-// DELETE REVIEW (Admin Only)
+// DELETE REVIEW (Admin Only — with ownership check)
 // ===============================
 export const deleteReview = async (req, res) => {
   try {
@@ -347,6 +392,16 @@ export const deleteReview = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Review not found",
+      });
+    }
+
+    // Verify admin owns the product this review belongs to
+    const adminProductIds = await getAdminProductIds(req.admin);
+    const isOwned = adminProductIds.some((pid) => pid.equals(review.productId));
+    if (!isOwned) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to delete this review.",
       });
     }
 

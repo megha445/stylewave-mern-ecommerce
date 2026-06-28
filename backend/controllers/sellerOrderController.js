@@ -28,13 +28,11 @@ const emitOrderEvent = (eventName, order) => {
 const getSellerDashboard = async (req, res) => {
   try {
     const sellerId = req.body.sellerId;
-    console.log("🔍 Fetching dashboard for seller:", sellerId);
 
     const orders = await Order.find({
       "orderItems.sellerId": sellerId,
     }).populate("userId", "email name"); // ✅ Note: Changed back to userId to match your schema
 
-    console.log("📦 Found orders:", orders.length);
 
     const sellerOrders = orders.map((order) => ({
       ...order.toObject(),
@@ -77,6 +75,34 @@ const getSellerDashboard = async (req, res) => {
       },
     ]);
 
+    const topProducts = await Order.aggregate([
+      {
+        $match: {
+          "orderItems.sellerId": new mongoose.Types.ObjectId(sellerId),
+          status: "DELIVERED",
+        },
+      },
+      { $unwind: "$orderItems" },
+      {
+        $match: {
+          "orderItems.sellerId": new mongoose.Types.ObjectId(sellerId),
+        },
+      },
+      {
+        $group: {
+          _id: "$orderItems.productId",
+          productName: { $first: "$orderItems.name" },
+          totalQuantity: { $sum: "$orderItems.quantity" },
+          totalRevenue: {
+            $sum: { $multiply: ["$orderItems.price", "$orderItems.quantity"] },
+          },
+          orderCount: { $sum: 1 },
+        },
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: 5 },
+    ]);
+
     res.json({
       success: true,
       stats: {
@@ -84,6 +110,7 @@ const getSellerDashboard = async (req, res) => {
         totalRevenue,
         pendingOrders,
         statusCounts,
+        topProducts,
       },
     });
   } catch (error) {
@@ -96,7 +123,6 @@ const getSellerDashboard = async (req, res) => {
 const getSellerOrders = async (req, res) => {
   try {
     const sellerId = req.body.sellerId;
-    console.log("🔍 Fetching orders for seller:", sellerId);
 
     const orders = await Order.find({
       "orderItems.sellerId": sellerId,
@@ -104,7 +130,6 @@ const getSellerOrders = async (req, res) => {
       .populate("userId", "email name") // ✅ Changed back to userId
       .sort({ createdAt: -1 });
 
-    console.log("📦 Found orders:", orders.length);
 
     const sellerOrders = orders.map((order) => {
       const sellerItems = order.orderItems.filter(

@@ -15,9 +15,9 @@ dotenv.config({ path: join(__dirname, "..", ".env") });
 await connectDB();
 
 const defaultAdmin = {
-  name: "Default Admin",
-  email: "vattamvenkatasaimeghashyamredd@gmail.com",
-  password: "meghashyam",
+  name: "rest mania",
+  email: "malreddysarithammma@gmail.com",
+  password: "sarithamma",
 };
 
 const existingAdmin = await adminModel.findOne({ email: defaultAdmin.email });

@@ -30,9 +30,52 @@ const emitProductChanged = (product, action) => {
 };
 
 const clearProductCache = async () => {
-  await redisClient.del("products");
-  await redisClient.del("approved_products");
-  await redisClient.del("approved_products_p1"); // ✅ pagination cache
+  if (redisClient) {
+    await redisClient.del("products");
+    await redisClient.del("approved_products");
+    await redisClient.del("approved_products_p1"); // ✅ pagination cache
+  }
+};
+
+const getProductSortOption = (sort) => {
+  if (sort === "low-high") return { price: 1 };
+  if (sort === "high-low") return { price: -1 };
+  return { createdAt: -1 };
+};
+
+// NOTE: kept for potential reuse, but no longer used by the admin/seller
+// branches of listProducts — those now return the full unpaginated list
+// since the frontend has no pagination UI and sinks "Removed" items to
+// the bottom itself (see sortByRemoved in List.jsx).
+const fetchProductsWithRemovedLast = async (filter, sortOption, skip, limit) => {
+  const activeFilter = { ...filter, status: { $ne: "Removed" } };
+  const removedFilter = { ...filter, status: "Removed" };
+  const activeCount = await productModel.countDocuments(activeFilter);
+
+  if (skip >= activeCount) {
+    return productModel
+      .find(removedFilter)
+      .sort(sortOption)
+      .skip(skip - activeCount)
+      .limit(limit);
+  }
+
+  const activeProducts = await productModel
+    .find(activeFilter)
+    .sort(sortOption)
+    .skip(skip)
+    .limit(limit);
+
+  if (activeProducts.length === limit) {
+    return activeProducts;
+  }
+
+  const removedProducts = await productModel
+    .find(removedFilter)
+    .sort(sortOption)
+    .limit(limit - activeProducts.length);
+
+  return [...activeProducts, ...removedProducts];
 };
 
 const getAdminContact = (admin) => ({
@@ -81,6 +124,13 @@ const addProduct = async (req, res) => {
     const productImages = [image1, image2, image3, image4].filter(
       (image) => image !== undefined
     );
+
+    if (productImages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload at least one product image",
+      });
+    }
 
     let imageUrls = await Promise.all(
       productImages.map(async (image) => {
@@ -133,7 +183,9 @@ const addProduct = async (req, res) => {
       }
     }
 
-    await clearProductCache();
+    if (redisClient) {
+      await clearProductCache();
+    }
     emitProductChanged(product, "created");
 
     res.status(201).json({
@@ -143,7 +195,7 @@ const addProduct = async (req, res) => {
         : "Product added successfully",
     });
   } catch (error) {
-    console.log("❌ Error while adding product:", error);
+    console.error("❌ Error while adding product:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -153,45 +205,19 @@ const listProducts = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 12;
-    const skip = (page - 1) * limit;
-    const sort = req.query.sort || "";  // ✅ ADD
+    const sort = req.query.sort || "";
 
-    // ✅ Build sort option
-    let sortOption = { date: -1 }; // default newest first
-    if (sort === "low-high") sortOption = { price: 1 };
-    else if (sort === "high-low") sortOption = { price: -1 };
-
-    let products;
-    let total;
+    const sortOption = getProductSortOption(sort);
 
     if (req.seller) {
-      total = await productModel.countDocuments({ sellerId: req.seller._id });
-      products = await productModel.find({ sellerId: req.seller._id })
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limit);
-    } else if (req.admin) {
-      total = await productModel.countDocuments();
-      products = await productModel.find()
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limit);
-    } else {
-      // Only cache default sort page 1
-      if (page === 1 && !sort) {
-        const cached = await redisClient.get("approved_products_p1");
-        if (cached) {
-          return res.json(JSON.parse(cached));
-        }
-      }
-
-      total = await productModel.countDocuments({ status: "Approved" });
-      products = await productModel.find({ status: "Approved" })
+      const total = await productModel.countDocuments({ sellerId: req.seller._id });
+      const products = await productModel
+        .find({ sellerId: req.seller._id })
         .sort(sortOption)
         .skip(skip)
         .limit(limit);
 
-      const responseData = {
+      res.json({
         success: true,
         products,
         total,
@@ -199,30 +225,85 @@ const listProducts = async (req, res) => {
         totalPages: Math.ceil(total / limit),
         hasNextPage: page < Math.ceil(total / limit),
         hasPrevPage: page > 1,
+      });
+    } else if (req.admin) {
+      // Scope to THIS admin's own sellers + platform products (sellerId: null),
+      // matching the permission model already enforced in
+      // canAdminManageSellerProduct. Previously this had no filter at all,
+      // which (a) leaked every other admin's seller products into the list,
+      // and (b) combined with the default limit of 12, silently truncated
+      // the list to the 12 most-recently-created products platform-wide —
+      // which is why suspended/older products appeared to "disappear".
+      const sellerIds = await getSellerIdsForAdmin(req.admin);
+      const filter = {
+        $or: [
+          { sellerId: null, addedBy: req.admin._id },
+          { sellerId: { $in: sellerIds } },
+        ],
+      };
+      const total = await productModel.countDocuments(filter);
+      const products = await productModel
+        .find(filter)
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limit);
+
+      res.json({
+        success: true,
+        products,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1,
+      });
+    } else {
+      // Only cache default sort page 1
+      const safePage = Math.max(1, page);
+      const safeLimit = Math.max(1, limit);
+      if (safePage === 1 && !sort) {
+        let cached = null;
+        if (redisClient) {
+          cached = await redisClient.get("approved_products_p1");
+        }
+        if (cached) {
+          return res.json(JSON.parse(cached));
+        }
+      }
+
+      const skip = (safePage - 1) * safeLimit;
+      const total = await productModel.countDocuments({ status: "Approved" });
+      const products = await productModel
+        .find({ status: "Approved" })
+        .sort(sortOption)
+        .skip(skip)
+        .limit(safeLimit);
+
+      const responseData = {
+        success: true,
+        products,
+        total,
+        page: safePage,
+        totalPages: Math.ceil(total / safeLimit),
+        hasNextPage: safePage < Math.ceil(total / safeLimit),
+        hasPrevPage: safePage > 1,
       };
 
       // Cache only default sort page 1
-      if (page === 1 && !sort) {
-        await redisClient.setEx(
-          "approved_products_p1",
-          600,
-          JSON.stringify(responseData)
-        );
+      if (safePage === 1 && !sort) {
+        if (redisClient) {
+          await redisClient.setEx(
+            "approved_products_p1",
+            600,
+            JSON.stringify(responseData)
+          );
+        }
       }
 
       return res.json(responseData);
     }
-
-    res.json({
-      success: true,
-      products,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-      hasNextPage: page < Math.ceil(total / limit),
-      hasPrevPage: page > 1,
-    });
   } catch (error) {
+    console.error("listProducts error:", error.stack);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -274,7 +355,9 @@ const approveProduct = async (req, res) => {
       );
     }
 
-    await clearProductCache();
+    if (redisClient) {
+      await clearProductCache();
+    }
     emitProductChanged(product, "approved");
 
     res.json({ success: true, message: "Product approved successfully" });
@@ -334,6 +417,27 @@ const removeProduct = async (req, res) => {
       return res.status(404).json({ 
         success: false, 
         message: "Product not found" 
+      });
+    }
+
+    if (!(await canAdminManageSellerProduct(req.admin, product))) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
+    }
+
+    if (product.status === "Suspended") {
+      return res.status(400).json({
+        success: false,
+        message: "Suspended products cannot be deleted. Unsuspend it first.",
+      });
+    }
+
+    if (product.status === "Removed") {
+      return res.status(400).json({
+        success: false,
+        message: "Product is already removed",
       });
     }
 
@@ -398,6 +502,20 @@ const suspendProduct = async (req, res) => {
       });
     }
 
+    if (product.status === "Removed") {
+      return res.status(400).json({
+        success: false,
+        message: "Removed products cannot be suspended",
+      });
+    }
+
+    if (!(await canAdminManageSellerProduct(req.admin, product))) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
+    }
+
     // ✅ Suspend — hide from store but keep existing orders running
     product.status = "Suspended";
     await product.save();
@@ -433,6 +551,20 @@ const unsuspendProduct = async (req, res) => {
       return res.status(404).json({ 
         success: false, 
         message: "Product not found" 
+      });
+    }
+
+    if (product.status === "Removed") {
+      return res.status(400).json({
+        success: false,
+        message: "Removed products cannot be unsuspended",
+      });
+    }
+
+    if (!(await canAdminManageSellerProduct(req.admin, product))) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
       });
     }
 
@@ -472,12 +604,27 @@ const getSingleProduct = async (req, res) => {
 // ============= UPDATE PRODUCT =============
 const updateProduct = async (req, res) => {
   try {
-    console.log("req.body:", req.body); // 👈 debug line
-    console.log("req.files:", req.files);
     const product = await productModel.findById(req.params.id);
 
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    if (product.status === "Suspended" || product.status === "Removed") {
+      return res.status(403).json({
+        success: false,
+        message:
+          product.status === "Suspended"
+            ? "Suspended products cannot be edited. Unsuspend it first."
+            : "Removed products cannot be edited.",
+      });
+    }
+
+    if (req.admin && !(await canAdminManageSellerProduct(req.admin, product))) {
+      return res.status(403).json({
+        success: false,
+        message: "This seller belongs to another admin.",
+      });
     }
 
     // ✅ Seller cannot edit approved products
@@ -535,7 +682,9 @@ const updateProduct = async (req, res) => {
       );
     }
 
-    await clearProductCache();
+    if (redisClient) {
+      await clearProductCache();
+    }
     emitProductChanged(product, "updated");
 
     res.json({ success: true, message: "Product updated successfully" });
