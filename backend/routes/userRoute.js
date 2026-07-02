@@ -4,9 +4,6 @@ import {
   loginUser,
   loginAdmin,
   loginSeller,
-  forgotPassword,
-  resetPassword,
-  changePasswordUser,
   logoutAdmin,
   logoutSeller,
   logoutUser,
@@ -27,7 +24,6 @@ import sellerAuth from "../middleware/sellerAuth.js";
 import {
   authLimiter,
   mutationLimiter,
-  passwordLimiter,
 } from "../middleware/rateLimiters.js";
 
 /**
@@ -425,40 +421,6 @@ userRouter.get("/seller/me", sellerAuth, getSellerMe);
  */
 userRouter.post("/logout", logoutUser);
 
-//USER FORGOT PASSWORD
-userRouter.post("/forgot-password", passwordLimiter, forgotPassword);
-
-//RESET PASSWORD
-/**
- * @swagger
- * /api/user/reset-password:
- *   post:
- *     summary: Reset password with token
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [token, newPassword]
- *             properties:
- *               token:
- *                 type: string
- *                 example: "reset_token_123"
- *               newPassword:
- *                 type: string
- *                 example: "newpassword123"
- *     responses:
- *       200:
- *         description: Password reset successful
- */
-userRouter.post("/reset-password", authLimiter, resetPassword);
-
-//CHANGE PASSWORD
-userRouter.post("/change-password-user", passwordLimiter, protect, changePasswordUser);
 
 userRouter.get("/cart", protect, getCart);
 userRouter.post("/cart/add", mutationLimiter, protect, addToCart);

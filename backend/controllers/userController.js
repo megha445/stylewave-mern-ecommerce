@@ -5,7 +5,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 import crypto from "crypto";
-import { sendUserForgotPasswordEmail } from "../config/email.js";
 import {
   setAuthCookie,
   clearAuthCookie,
@@ -215,138 +214,6 @@ const loginSeller = async (req, res) => {
   }
 };
 
-const forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.json({ success: false, message: "Email is required" });
-    }
-
-    const user = await userModel.findOne({ email });
-
-    if (!user) {
-      // To prevent email enumeration, we still return success but do nothing
-      return res.json({
-        success: true,
-        message: "If an account exists with that email, you will receive a reset link.",
-      });
-    }
-
-    // Generate random token
-    const token = crypto.randomBytes(32).toString('hex');
-    // Hash token
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Set token and expiry (1 hour)
-    user.resetToken = hashedToken;
-    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
-
-    await user.save();
-
-    // Send reset email
-    try {
-      await sendUserForgotPasswordEmail(user.email, user.name, token);
-
-      res.json({
-        success: true,
-        message: "If an account exists with that email, you will receive a reset link.",
-      });
-    } catch (emailError) {
-      console.error("Failed to send reset email:", emailError);
-      res.json({
-        success: false,
-        message: "Failed to send email. Please try again.",
-      });
-    }
-  } catch (error) {
-    console.error("Forgot password error:", error);
-    res.json({ success: false, message: error.message });
-  }
-};
-
-const changePasswordUser = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      return res.json({
-        success: false,
-        message: "Current password and new password are required",
-      });
-    }
-
-    if (!req.user) {
-      return res.json({
-        success: false,
-        message: "User not authenticated",
-      });
-    }
-
-    // Fetch user WITH password (middleware excluded it)
-    const user = await userModel.findById(req.user._id);
-
-    if (!user) {
-      return res.json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // Check if user.password exists
-    if (!user.password) {
-      return res.json({
-        success: false,
-        message: "User password not found in database",
-      });
-    }
-
-    // Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-
-    if (!isMatch) {
-      return res.json({
-        success: false,
-        message: "Current password is incorrect",
-      });
-    }
-
-    // Check if new password is different
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
-    if (isSamePassword) {
-      return res.json({
-        success: false,
-        message: "New password must be different from current password",
-      });
-    }
-
-    // Validate new password length
-    if (newPassword.length < 8) {
-      return res.json({
-        success: false,
-        message: "Password must be at least 8 characters",
-      });
-    }
-
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    // Update password
-    user.password = hashedPassword;
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Password changed successfully",
-    });
-  } catch (error) {
-    console.error("Error in changePasswordUser:", error);
-    res.json({ success: false, message: error.message });
-  }
-};
-
 const logoutAdmin = (req, res) => {
   clearAuthCookie(res, "admin");
   res.json({ success: true, message: "Logged out successfully" });
@@ -425,74 +292,11 @@ const getSellerMe = (req, res) => {
   });
 };
 
-// RESET PASSWORD
-const resetPassword = async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-
-    if (!token || !newPassword) {
-      return res.json({
-        success: false,
-        message: "Token and new password are required",
-      });
-    }
-
-    // Hash token to compare with stored hash
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find user by hashed token and expiry > now
-    const user = await userModel.findOne({
-      resetToken: hashedToken,
-      resetTokenExpiry: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.json({
-        success: false,
-        message: "Invalid or expired token",
-      });
-    }
-
-    // Validate new password length
-    if (newPassword.length < 8) {
-      return res.json({
-        success: false,
-        message: "Password must be at least 8 characters",
-      });
-    }
-
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    // Update password and clear token fields
-    user.password = hashedPassword;
-    user.resetToken = null;
-    user.resetTokenExpiry = null;
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Password has been reset successfully",
-    });
-  } catch (error) {
-    console.error("Reset password error:", error);
-    res.json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
-
 export {
   registerUser,
   loginUser,
   loginAdmin,
   loginSeller,
-  forgotPassword,
-  resetPassword,
-  changePasswordUser,
   logoutAdmin,
   logoutSeller,
   logoutUser,

@@ -25,14 +25,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    resetToken: {
-      type: String,
-      default: null,
-    },
-    resetTokenExpiry: {
-      type: Date,
-      default: null,
-    },
 
     // ✅ Removed role - users are just customers
     
