@@ -36,20 +36,35 @@ const Sidebar = () => {
           <p className="hidden font-semibold md:block">Add Items</p>
         </NavLink>
 
-        {/* List Items */}
-        <NavLink
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-              isActive
-                ? "bg-blue-600 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-blue-50 hover:shadow-sm"
-            }`
-          }
-          to={"/list"}
-        >
-          <img className="w-5 h-5" src={assets.parcel_icon} alt="List Items" />
-          <p className="hidden font-semibold md:block">List Items</p>
-        </NavLink>
+       {/* Platform Products */}
+<NavLink
+  className={({ isActive }) =>
+    `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+      isActive
+        ? "bg-blue-600 text-white shadow-md"
+        : "bg-white text-gray-700 hover:bg-blue-50 hover:shadow-sm"
+    }`
+  }
+  to={"/platform-products"}
+>
+  <img className="w-5 h-5" src={assets.parcel_icon} alt="Platform Products" />
+  <p className="hidden font-semibold md:block">Platform Products</p>
+</NavLink>
+
+{/* Seller Products */}
+<NavLink
+  className={({ isActive }) =>
+    `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+      isActive
+        ? "bg-blue-600 text-white shadow-md"
+        : "bg-white text-gray-700 hover:bg-blue-50 hover:shadow-sm"
+    }`
+  }
+  to={"/seller-products"}
+>
+  <img className="w-5 h-5" src={assets.parcel_icon} alt="Seller Products" />
+  <p className="hidden font-semibold md:block">Seller Products</p>
+</NavLink>
 
         {/* Pending Products */}
         <NavLink

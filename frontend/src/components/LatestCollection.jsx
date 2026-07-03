@@ -4,17 +4,17 @@ import Title from "./Title";
 import ProductItem from "./ProductItem";
 
 const LatestCollection = () => {
-  const { products } = useContext(ShopContext);
+  const { allProducts } = useContext(ShopContext);
   const [latestProducts, setLatestProducts] = useState([]);
 
   useEffect(() => {
     // Sort products by createdAt date (newest first) and take first 10
-    const sortedProducts = [...products]
+    const sortedProducts = [...allProducts]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 10);
     
     setLatestProducts(sortedProducts);
-  }, [products]);
+  }, [allProducts]);
 
   return (
     <div className="my-10">

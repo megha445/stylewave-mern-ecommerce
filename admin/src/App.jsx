@@ -3,7 +3,8 @@ import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import { Route, Routes } from "react-router-dom";
 import Add from "./pages/Add";
-import List from "./pages/List";
+import PlatformProducts from "./pages/PlatformProducts";
+import SellerProducts from "./pages/SellerProducts";
 import Orders from "./pages/Orders";
 import Login from "./components/Login";
 import { ToastContainer } from "react-toastify";
@@ -46,7 +47,8 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/add" element={<Add />} />
-                <Route path="/list" element={<List />} />
+                <Route path="/platform-products" element={<PlatformProducts />} />
+                <Route path="/seller-products" element={<SellerProducts />} />  
                 <Route path="/pending" element={<PendingProducts />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/edit/:id" element={<Edit />} />

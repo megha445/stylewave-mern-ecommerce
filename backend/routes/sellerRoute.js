@@ -22,7 +22,7 @@ import { getCloudinarySignature } from "../controllers/uploadController.js";
 import adminAuth from "../middleware/adminAuth.js";
 import sellerAuth from "../middleware/sellerAuth.js";
 import {
-  authLimiter,
+  apiLimiter,
   mutationLimiter,
   passwordLimiter,
 } from "../middleware/rateLimiters.js";
@@ -469,7 +469,7 @@ sellerRouter.put(
 sellerRouter.delete("/product/delete/:id", mutationLimiter, sellerAuth, deleteSellerProduct);
 
 // ✅ Signed Cloudinary upload (seller)
-sellerRouter.get("/upload/cloudinary-signature", authLimiter, sellerAuth, getCloudinarySignature);
+sellerRouter.get("/upload/cloudinary-signature", apiLimiter, sellerAuth, getCloudinarySignature);
 
 sellerRouter.get("/orders/dashboard", sellerAuth, getSellerDashboard);
 sellerRouter.get("/orders/list", sellerAuth, getSellerOrders);

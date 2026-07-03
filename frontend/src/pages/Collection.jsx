@@ -5,16 +5,18 @@ import Title from "../components/Title";
 import ProductItem from "../components/ProductItem";
 
 const Collection = () => {
-  const { 
-    products, 
-    search, 
-    showSearch, 
+  const {
+    products,
+    search,
+    showSearch,
     searchProductsFromDB,
     fetchProducts,
-    totalPages,
-    currentPage,
-    totalProducts
   } = useContext(ShopContext);
+  // ⬆️ totalPages/currentPage/totalProducts removed from here — they were
+  // being overwritten by ShopContext's own unfiltered fetchProducts calls
+  // (on mount + on every "product:changed" socket event), which desynced
+  // pagination from whatever filtered results Collection was showing.
+  // We now track browse-mode pagination locally instead (see below).
 
   const [showFilter, setShowFilter] = useState(false);
   const [filterProducts, setFilterProducts] = useState([]);
@@ -22,6 +24,12 @@ const Collection = () => {
   const [subCategory, setSubCategory] = useState([]);
   const [sortType, setSortType] = useState("relevant");
   const [isSearching, setIsSearching] = useState(false);
+
+  // ✅ Local pagination state for normal browsing (mirrors search state below)
+  const [browsePage, setBrowsePage] = useState(1);
+  const [browseTotalPages, setBrowseTotalPages] = useState(1);
+  const [browseTotal, setBrowseTotal] = useState(0);
+
   const [searchPage, setSearchPage] = useState(1);
   const [searchTotalPages, setSearchTotalPages] = useState(1);
   const [searchTotal, setSearchTotal] = useState(0);
@@ -43,7 +51,7 @@ const Collection = () => {
     }
   };
 
-  // ✅ Apply filter — backend search or local filter
+  // ✅ Apply filter — backend search or backend browse
   const applyFilter = async (page = 1) => {
     if (showSearch && search) {
       setIsSearchMode(true);
@@ -61,26 +69,18 @@ const Collection = () => {
       return;
     }
 
-    // Local filter
+    // ✅ Backend browse — filters + sort applied server-side, across ALL products
     setIsSearchMode(false);
-    let productsCopy = products.slice();
-
-    if (category.length > 0) {
-      productsCopy = productsCopy.filter((item) =>
-        category.includes(item.category)
-      );
-    }
-
-    if (subCategory.length > 0) {
-      productsCopy = productsCopy.filter((item) =>
-        subCategory.includes(item.subCategory)
-      );
-    }
-
-    if (sortType === "low-high") productsCopy.sort((a, b) => a.price - b.price);
-    else if (sortType === "high-low") productsCopy.sort((a, b) => b.price - a.price);
-
-    setFilterProducts(productsCopy);
+    const result = await fetchProducts(
+      page,
+      sortType === "relevant" ? "" : sortType,
+      category,
+      subCategory
+    );
+    setFilterProducts(result.products);
+    setBrowsePage(result.page);
+    setBrowseTotalPages(result.totalPages);
+    setBrowseTotal(result.total);
   };
 
   const clearFilters = () => {
@@ -90,17 +90,15 @@ const Collection = () => {
 
   // ✅ Handle page change for normal browsing
   const handlePageChange = (page) => {
-    fetchProducts(page);
+    applyFilter(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // ✅ Fixed — no more redundant call with a stale sortType.
+  // The useEffect below already watches sortType and will re-run applyFilter.
   const handleSortChange = (newSort) => {
     setSortType(newSort);
-    if (!isSearchMode) {
-      fetchProducts(1, newSort === "relevant" ? "" : newSort);
-    }
   };
-  
 
   // ✅ Handle page change for search
   const handleSearchPageChange = (page) => {
@@ -110,7 +108,8 @@ const Collection = () => {
 
   useEffect(() => {
     applyFilter(1);
-  }, [category, subCategory, search, showSearch, sortType, products]);
+  }, [category, subCategory, search, showSearch, sortType]);
+
 
   // ✅ Pagination component
   const Pagination = ({ currentPg, totalPgs, onPageChange }) => {
@@ -275,13 +274,9 @@ const Collection = () => {
             <>
               Found <span className="font-semibold">{searchTotal}</span> results
               for "<strong>{search}</strong>"
-              — Page {searchPage} of {searchTotalPages}
             </>
           ) : (
             <>
-              Showing <span className="font-semibold">{filterProducts.length}</span> of{" "}
-              <span className="font-semibold">{totalProducts}</span> products
-              — Page {currentPage} of {totalPages}
             </>
           )}
         </div>
@@ -315,8 +310,8 @@ const Collection = () => {
         {/* ✅ Pagination — normal browsing */}
         {!isSearchMode && (
           <Pagination
-            currentPg={currentPage}
-            totalPgs={totalPages}
+            currentPg={browsePage}
+            totalPgs={browseTotalPages}
             onPageChange={handlePageChange}
           />
         )}

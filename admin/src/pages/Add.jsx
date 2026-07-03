@@ -26,6 +26,10 @@ const Add = () => {
       notifyError("Please upload at least 1 product image");
       return;
     }
+    if (sizes.length === 0) {
+      alert("Please select at least one size"); 
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -205,6 +209,7 @@ const Add = () => {
                 type="number"
                 placeholder="Enter stock quantity"
                 min="0"
+                required
               />
             </div>
           </div>

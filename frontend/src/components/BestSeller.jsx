@@ -4,15 +4,14 @@ import Title from "./Title";
 import ProductItem from "./ProductItem";
 
 const BestSeller = () => {
-  const { products } = useContext(ShopContext);
-  console.log("All products:", products.map(p => ({ name: p.name, bestSeller: p.bestSeller })));
+  const { allProducts } = useContext(ShopContext);
 
   // ✅ Filter best sellers and sort by date (newest first)
-  const bestSeller = products
-  .filter((item) => item.bestSeller)
-  .sort((a, b) => b.bestScore - a.bestScore) // ← sort by score
-  .slice(0, 5);
-  console.log("Best sellers filtered:", bestSeller.length);
+  const bestSeller = allProducts
+    .filter((item) => item.bestSeller)
+    .sort((a, b) => b.bestScore - a.bestScore)
+    .slice(0, 5);
+
   return (
     <div className="my-10">
       <div className="py-8 text-3xl text-center">

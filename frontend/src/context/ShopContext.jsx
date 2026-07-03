@@ -15,6 +15,7 @@ const ShopContextProvider = (props) => {
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [cartItems, setCartItems] = useState({});
+  const [allProducts, setAllProducts] = useState([]);
   const [token, setToken] = useState("");
   const tokenRef = useRef("");
   const navigate = useNavigate();
@@ -33,6 +34,18 @@ const ShopContextProvider = (props) => {
       tokenRef.current = clerkToken;
     }
     return clerkToken || "";
+  };
+
+  const fetchAllProducts = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/product/list?page=1&limit=1000`);
+      const data = await res.json();
+      if (data.success) {
+        setAllProducts(data.products);
+      }
+    } catch (error) {
+      console.error("Failed to fetch all products", error);
+    }
   };
 
   const getAuthHeaders = async () => {
@@ -68,34 +81,49 @@ const ShopContextProvider = (props) => {
     };
   }, [getToken, isLoaded, isSignedIn, user]);
 
-  const fetchProducts = async (page = 1, sort = "") => {
+  const fetchProducts = async (page = 1, sort = "", category = [], subCategory = []) => {
     try {
-      const res = await fetch(
-        `${backendUrl}/api/product/list?page=${page}&limit=12&sort=${sort}`
-      );
+      const params = new URLSearchParams();
+      params.append("page", page);
+      params.append("limit", 12);
+      if (sort) params.append("sort", sort);
+      if (category.length) params.append("category", category.join(","));
+      if (subCategory.length) params.append("subCategory", subCategory.join(","));
+
+      const res = await fetch(`${backendUrl}/api/product/list?${params}`);
       const data = await res.json();
       if (data.success) {
         setProducts(data.products);
         setTotalProducts(data.total);
         setTotalPages(data.totalPages);
         setCurrentPage(data.page);
+        return { products: data.products, total: data.total, totalPages: data.totalPages, page: data.page };
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
+      return { products: [], total: 0, totalPages: 1, page: 1 };
     }
   };
 
+  // Run once on mount — initial fetch + socket listener setup
   useEffect(() => {
     fetchProducts(1);
-
+    fetchAllProducts(); // ✅ add this line
+  
     const socket = connectSocket();
-    const refreshProducts = () => fetchProducts(currentPage);
+    const refreshProducts = () => {
+      setCurrentPage((prevPage) => {
+        fetchProducts(prevPage);
+        return prevPage;
+      });
+      fetchAllProducts(); // ✅ add this line
+    };
     socket.on("product:changed", refreshProducts);
-
+  
     return () => {
       socket.off("product:changed", refreshProducts);
     };
-  }, [backendUrl, currentPage]);
+  }, [backendUrl]);
 
   useEffect(() => {
     if (token) {
@@ -106,18 +134,18 @@ const ShopContextProvider = (props) => {
   }, [token]);
 
   useEffect(() => {
-    if (products.length === 0) return;
+    if (allProducts.length === 0) return;
     const cartData = structuredClone(cartItems);
     let changed = false;
     for (const id in cartData) {
-      const exists = products.find((p) => p._id === id);
+      const exists = allProducts.find((p) => p._id === id);
       if (!exists) {
         delete cartData[id];
         changed = true;
       }
     }
     if (changed) setCartItems(cartData);
-  }, [products]);
+  }, [allProducts]);
 
   const fetchCartFromDB = async () => {
     try {
@@ -241,7 +269,7 @@ const ShopContextProvider = (props) => {
   const getCartAmount = () => {
     let total = 0;
     for (const id in cartItems) {
-      const product = products.find((p) => p._id === id);
+      const product = allProducts.find((p) => p._id === id);
       if (!product) continue;
       for (const size in cartItems[id]) {
         total += product.price * cartItems[id][size];
@@ -262,6 +290,7 @@ const ShopContextProvider = (props) => {
 
   const value = {
     products,
+    allProducts,
     totalProducts,
     totalPages,
     currentPage,

@@ -206,7 +206,11 @@ const listProducts = async (req, res) => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 12;
     const sort = req.query.sort || "";
-
+    const category = req.query.category ? req.query.category.split(",") : [];       // ✅ add
+    const subCategory = req.query.subCategory ? req.query.subCategory.split(",") : []; // ✅ add
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, limit);
+    const skip = (safePage - 1) * safeLimit;
     const sortOption = getProductSortOption(sort);
 
     if (req.seller) {
@@ -257,11 +261,13 @@ const listProducts = async (req, res) => {
         hasNextPage: page < Math.ceil(total / limit),
         hasPrevPage: page > 1,
       });
-    } else {
-      // Only cache default sort page 1
+    }  else {
       const safePage = Math.max(1, page);
       const safeLimit = Math.max(1, limit);
-      if (safePage === 1 && !sort) {
+      const hasFilters = category.length > 0 || subCategory.length > 0;
+    
+      // Only use/serve cache when there's truly nothing to filter
+      if (safePage === 1 && !sort && !hasFilters) {
         let cached = null;
         if (redisClient) {
           cached = await redisClient.get("approved_products_p1");
@@ -270,15 +276,19 @@ const listProducts = async (req, res) => {
           return res.json(JSON.parse(cached));
         }
       }
-
+    
       const skip = (safePage - 1) * safeLimit;
-      const total = await productModel.countDocuments({ status: "Approved" });
+      const filter = { status: "Approved" };
+      if (category.length > 0) filter.category = { $in: category };
+      if (subCategory.length > 0) filter.subCategory = { $in: subCategory };
+    
+      const total = await productModel.countDocuments(filter);      // ✅ use filter
       const products = await productModel
-        .find({ status: "Approved" })
+        .find(filter)                                                // ✅ use filter
         .sort(sortOption)
         .skip(skip)
         .limit(safeLimit);
-
+    
       const responseData = {
         success: true,
         products,
@@ -288,9 +298,8 @@ const listProducts = async (req, res) => {
         hasNextPage: safePage < Math.ceil(total / safeLimit),
         hasPrevPage: safePage > 1,
       };
-
-      // Cache only default sort page 1
-      if (safePage === 1 && !sort) {
+    
+      if (safePage === 1 && !sort && !hasFilters) {
         if (redisClient) {
           await redisClient.setEx(
             "approved_products_p1",
@@ -299,7 +308,7 @@ const listProducts = async (req, res) => {
           );
         }
       }
-
+    
       return res.json(responseData);
     }
   } catch (error) {
